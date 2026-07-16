@@ -9,6 +9,7 @@
     "select": "tsx src/selectPost.ts",
     "generate": "tsx src/generatePost.ts",
     "thread": "tsx src/buildThread.ts",
+    "dryrun": "tsx src/dryRun.ts",
     "test": "node --import tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
