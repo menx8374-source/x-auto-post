@@ -7,6 +7,7 @@
   "scripts": {
     "collect": "tsx src/collectNews.ts",
     "select": "tsx src/selectPost.ts",
+    "generate": "tsx src/generatePost.ts",
     "test": "node --import tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
@@ -14,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.111.0",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {
