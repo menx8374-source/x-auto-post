@@ -42,12 +42,23 @@ npm run dryrun -- --inject-decoy
 # 既定では投稿履歴(既出判定用)に書き込まない。あえて記録したい場合のみ明示的に指定する
 npm run dryrun -- --write-history
 
+# F9: 投稿枠(任意の文字列。Sprint8で朝/昼/夜の実値が渡されるようになる)を指定すると、
+# 同一枠・同一日の二重投稿防止(冪等性)チェックが有効になる
+npm run dryrun -- --write-history --slot=morning
+
+# F9: 予定時刻(--scheduled-at)も指定すると、不発リカバリの許容範囲チェックも有効になる
+# (許容範囲を超える場合は「補って投稿」せずスキップする)
+npm run dryrun -- --write-history --slot=morning --scheduled-at=2026-07-16T00:00:00.000Z
+
 # F6: 本番投稿。収集→選定→生成→分割→リンク付与→実際にXへスレッド投稿する(npm run dryrunと同じパイプライン、
 # 差異は最後に呼ぶpublish関数のみ)。X_API_KEY等が未設定の場合は投稿処理でAPIを呼ばず安全にエラー終了する。
 npm run post
 
 # 検証用: 「古く話題も伸びていない」ダミー候補を混ぜて実行する
 npm run post -- --inject-decoy
+
+# F9: 本番投稿でも --slot / --scheduled-at を指定できる(Sprint8のcron連携で実際に使われる想定)
+npm run post -- --slot=morning --scheduled-at=2026-07-16T00:00:00.000Z
 
 # テスト実行
 npm test
@@ -58,7 +69,17 @@ npm run typecheck
 
 `npm run collect` を実行すると、Hacker News / Reddit(r/artificial, r/MachineLearning, r/OpenAI) / RSS(TechCrunch AI, VentureBeat AI, The Verge AI, Google News AI検索)から候補を収集し、急上昇スコア降順のテーブルをコンソールに出力し、構造化データを `data/output/latest-candidates.json` に保存する。一部の情報源への通信が失敗しても処理全体は継続し、失敗はログ(`[WARN]`)に残る。
 
-`npm run select` を実行すると、候補リストから「過去に投稿(選定)済みのURL・実質同一記事・スコアしきい値未満」を除外した上で最高スコアの1件を選定し、タイトル・URL・スコア・選定理由をログに出力する。選定結果は `data/output/latest-selection.json` に保存され、選定した記事は `data/history/post-history.json`(記事URL・タイトル・スコア・選定日時を記録。既出判定に使う実行時の状態ファイルのためgit管理対象外)に追記される。有効な候補が1件もない場合は投稿せず、理由付きで `[WARN]` ログに残す(Xへの投稿はSprint 6以降で実装)。
+`npm run select` を実行すると、候補リストから「過去に投稿(選定)済みのURL・実質同一記事・スコアしきい値未満」を除外した上で最高スコアの1件を選定し、タイトル・URL・スコア・選定理由をログに出力する。選定結果は `data/output/latest-selection.json` に保存され、選定した記事は `data/history/post-history.json`(記事URL・タイトル・スコア・選定日時に加え、Sprint 7以降は投稿枠(slot)・投稿完了日時(postedAt)・ツイートID(tweetIds)・状態(status)も記録。既出判定・冪等性判定に使う実行時の状態ファイルのためgit管理対象外)に追記される。有効な候補が1件もない場合は投稿せず、理由付きで `[WARN]` ログに残す(Xへの投稿はSprint 6以降で実装)。
+
+### F9: 投稿状態・履歴管理と冪等性(不発リカバリ)
+
+`src/postHistory.ts` が投稿履歴(`data/history/post-history.json`)の読み書きに加え、以下を提供する。
+
+- **冪等性**: `runPostingPipeline()` に `slot`(投稿枠)を指定すると、実行開始時に `hasPostedSlotOnDate()` で「本日その枠が既に投稿済み(status:"posted")か」を判定し、済みならAPI呼び出し(収集・生成・投稿)を一切行わず `stage:"skipped"`, `skipReason:"already-posted"` で安全に終了する。同一枠・同一日の二重起動があっても二重投稿されない。
+- **不発リカバリ**: `slot` と合わせて `scheduledAt`(その枠の本来の予定時刻、ISO8601)を指定すると、`isWithinRecoveryWindow()` で予定時刻からの経過時間を判定する。許容範囲(既定3時間、`POST_RECOVERY_WINDOW_HOURS` 環境変数または `recoveryWindowHours` オプションで上書き可)内なら投稿を補い、範囲外(例: 深夜に朝枠)なら `stage:"skipped"`, `skipReason:"outside-recovery-window"` で投稿しない。
+- **投稿結果の反映**: 投稿(publish)が成功/失敗した場合、選定時に書き込んだ履歴エントリへ `updateHistoryEntry()` で投稿枠・投稿日時・ツイートID・状態(`status: "posted" | "failed"`)を反映する(ドライラン等の未送信時は反映しない)。
+- `npm run dryrun` / `npm run post` はいずれも `--slot=<枠名>` / `--scheduled-at=<ISO8601>` を受け付ける(Sprint 8で朝/昼/夜の実際の枠と時刻マッピングが導入されるまでは、値の受け渡しのみサポートする任意パラメータ)。
+- 履歴は明示的に削除しない限りすべて残り、F2の既出判定(`selectPost.ts`)に引き続き利用される。Sprint 2形式(slot等のフィールドが無い)の既存データもそのまま読み込める(後方互換)。
 
 `npm run generate` を実行すると、`data/output/latest-selection.json` の選定記事をもとに、Claude(Anthropic API)で日本語の投稿文面を1つ生成し、コンソールに表示した上で `data/output/latest-post.json` に保存する(`{ success: true, text, candidate }` または失敗時 `{ success: false, error, candidate }`)。`ANTHROPIC_API_KEY` が未設定、またはAPI呼び出しが失敗した場合や生成結果がタイトルの丸写しに近い/空/長すぎる等の検証に通らない場合は、投稿処理には進まず `success: false` としてエラーを記録し、プロセスは終了コード1で終わる(壊れた/空の投稿をしない)。
 
@@ -77,5 +98,6 @@ npm run typecheck
 | `ANTHROPIC_API_KEY` | F3(投稿文面生成)を使う場合は必須 | Anthropic API(Claude)の認証キー。[console.anthropic.com](https://console.anthropic.com/)で発行(従量課金)。未設定時は文面生成がエラーとして安全に終了する。 |
 | `ANTHROPIC_MODEL` | 任意 | 使用するClaudeモデルID。未設定時はコード側のデフォルト(`claude-3-5-haiku-20241022`)を使う。 |
 | `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_SECRET` | F6(`npm run post`、実際にXへ投稿)を使う場合は必須 | X API v2の認証情報。[developer.x.com](https://developer.x.com/)でアプリを作成し発行する。Access Tokenには「Read and Write」権限が必要。いずれか未設定の場合、投稿処理はAPIを呼び出さず安全にエラーとして終了する(`npm run dryrun`には影響しない)。 |
+| `POST_RECOVERY_WINDOW_HOURS` | 任意 | F9: 不発リカバリの許容範囲(時間)。`--slot`と`--scheduled-at`を指定した実行で使われる。未設定/不正値時は既定値(3時間)を使う。 |
 
 `npm run collect` / `npm run select` 単体では外部認証情報は不要(情報源はすべて無認証の無料公開API/RSS)。

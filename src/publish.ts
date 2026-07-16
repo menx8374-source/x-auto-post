@@ -25,18 +25,31 @@ function loadDotEnvIfPresent(): void {
   }
 }
 
+/** "--slot=morning" 形式の引数から値を取り出す。未指定ならundefined */
+function readArgValue(args: string[], flag: string): string | undefined {
+  const prefix = `${flag}=`;
+  const found = args.find((a) => a.startsWith(prefix));
+  return found ? found.slice(prefix.length) : undefined;
+}
+
 async function main() {
   loadDotEnvIfPresent();
   const args = process.argv.slice(2);
   const injectDecoy = args.includes("--inject-decoy");
+  // F9: 投稿枠(Sprint8で朝/昼/夜の実値がcron連携から渡されるようになるまでは任意の文字列)。
+  // 指定すると同一枠・同一日の二重投稿防止と、不発リカバリの許容範囲チェックが有効になる。
+  const slot = readArgValue(args, "--slot");
+  const scheduledAt = readArgValue(args, "--scheduled-at");
 
-  log.info("running live posting pipeline (collect -> select -> generate -> thread -> post to X)");
+  log.info("running live posting pipeline (collect -> select -> generate -> thread -> post to X)", { slot, scheduledAt });
 
   const result = await runPostingPipeline({
     injectDecoy,
     // 本番投稿では既出判定を汚さないため、選定確定後に必ず投稿履歴へ記録する
     writeHistory: true,
     publish: xApiPublish,
+    slot,
+    scheduledAt,
   });
 
   const outDir = path.join(process.cwd(), "data", "output");
@@ -44,17 +57,30 @@ async function main() {
   const outFile = path.join(outDir, "latest-publish.json");
 
   if (!result.success) {
-    log.warn(`posting pipeline stopped at stage "${result.stage}"`, { reason: result.error });
+    log.warn(`posting pipeline stopped at stage "${result.stage}"`, {
+      reason: result.error,
+      skipReason: result.skipReason,
+    });
     await writeFile(
       outFile,
       JSON.stringify(
-        { ranAt: new Date().toISOString(), success: false, stage: result.stage, error: result.error },
+        {
+          ranAt: new Date().toISOString(),
+          success: false,
+          stage: result.stage,
+          skipReason: result.skipReason,
+          error: result.error,
+        },
         null,
         2
       ),
       "utf-8"
     );
-    process.exitCode = 1;
+    // F9: stage:"skipped"(冪等性/不発リカバリの許容範囲外)はcron連携上の正常な動作のため、
+    // 異常終了(exitCode 1)ではなく成功終了として扱う。それ以外(候補なし/生成失敗)は従来通り異常終了。
+    if (result.stage !== "skipped") {
+      process.exitCode = 1;
+    }
     return;
   }
 

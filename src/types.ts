@@ -42,11 +42,18 @@ export interface SourceFetcher {
 /**
  * F2/F9: 投稿(選定)履歴1件分。
  *
- * Sprint 2時点では「投稿対象として確定した」タイミングで記録される最小限の履歴。
- * Sprint 7(F9: 冪等性・不発リカバリ)でslot(投稿枠)・status(成功/失敗)・tweetIds等を
- * 拡張する前提のため、キーの追加だけで済むようフラットな形にしてある。
+ * Sprint 2時点では「投稿対象として確定した」タイミングで記録される最小限の履歴だった。
+ * Sprint 7(F9: 冪等性・不発リカバリ)でslot(投稿枠)・status・postedAt・tweetIds を追加し、
+ * 正式な投稿状態・履歴管理へ拡張した。追加フィールドはすべて任意(optional)のため、
+ * Sprint 2形式の既存データ(これらのフィールドを持たない)もそのまま読み込める。
  */
 export interface PostHistoryEntry {
+  /**
+   * エントリの一意識別子(Sprint 7で追加)。選定時に発行し、投稿完了後に同じidで
+   * updateHistoryEntry()から結果(postedAt/tweetIds/status)を反映するために使う。
+   * Sprint 2以前に書き込まれたエントリには存在しない。
+   */
+  id?: string;
   /** 元記事URL(そのまま) */
   url: string;
   /** normalizeUrl()済みのURL。既出判定の照合に使う */
@@ -57,4 +64,20 @@ export interface PostHistoryEntry {
   score?: number;
   /** この記事が投稿対象として選定された日時(ISO8601) */
   selectedAt: string;
+  /**
+   * 投稿枠(Sprint 7時点では任意の文字列。Sprint 8(F7)で朝/昼/夜等の実際の枠名が渡されるようになる)。
+   * 同一枠・同一日の冪等性判定(hasPostedSlotOnDate)のキーに使う。
+   */
+  slot?: string;
+  /** 実際に投稿(全ツイート送信)が完了した日時(ISO8601)。status:"posted"のときのみ設定される */
+  postedAt?: string;
+  /** 投稿できたツイートIDの配列(投稿順)。1件も投稿できていない場合は未設定または空配列 */
+  tweetIds?: string[];
+  /**
+   * エントリの状態。
+   * - "selected": 投稿対象として選定されたのみ(未設定/Sprint2形式の既存データもこれと同義)
+   * - "posted": 実際にXへの投稿が完了した
+   * - "failed": 投稿を試みたが失敗した(既出判定には引き続き使われるが、slot冪等性判定はブロックしない)
+   */
+  status?: "selected" | "posted" | "failed";
 }

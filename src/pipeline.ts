@@ -13,7 +13,15 @@ import { collectAndScoreNews } from "./collectNews.js";
 import { selectNextPost, type SelectionResult } from "./selectPost.js";
 import { generatePostText, type PostGenerationResult } from "./generatePost.js";
 import { composeThread, type ThreadTweet } from "./threadSplit.js";
-import { loadHistory, appendHistoryEntry } from "./postHistory.js";
+import {
+  loadHistory,
+  appendHistoryEntry,
+  updateHistoryEntry,
+  hasPostedSlotOnDate,
+  isWithinRecoveryWindow,
+  getConfiguredRecoveryWindowHours,
+  type PostHistoryUpdate,
+} from "./postHistory.js";
 import type { NewsCandidate, PostHistoryEntry } from "./types.js";
 
 /** 投稿予定ツイート配列を実際に送信する(または送信しない)役目を持つ関数。本番/ドライランの唯一の差し替え点 */
@@ -53,7 +61,9 @@ export interface PipelineDependencies {
   select: (candidates: NewsCandidate[], history: PostHistoryEntry[]) => SelectionResult;
   generate: (candidate: NewsCandidate) => Promise<PostGenerationResult>;
   buildThread: (text: string, url: string) => ThreadTweet[];
-  appendHistory: (entry: Omit<PostHistoryEntry, "normalizedUrl">) => Promise<PostHistoryEntry>;
+  appendHistory: (entry: Omit<PostHistoryEntry, "normalizedUrl" | "id">) => Promise<PostHistoryEntry>;
+  /** F9: 投稿完了後、選定時に書き込んだ履歴エントリへ実際の投稿結果を反映する */
+  updateHistory: (id: string, updates: PostHistoryUpdate) => Promise<PostHistoryEntry | null>;
 }
 
 const defaultDeps: PipelineDependencies = {
@@ -63,9 +73,10 @@ const defaultDeps: PipelineDependencies = {
   generate: (candidate) => generatePostText(candidate),
   buildThread: (text, url) => composeThread(text, url),
   appendHistory: (entry) => appendHistoryEntry(entry),
+  updateHistory: (id, updates) => updateHistoryEntry(id, updates),
 };
 
-export type PipelineStage = "select" | "generate" | "thread" | "publish" | "done";
+export type PipelineStage = "select" | "generate" | "thread" | "publish" | "skipped" | "done";
 
 export interface PipelineResult {
   success: boolean;
@@ -73,6 +84,8 @@ export interface PipelineResult {
   stage: PipelineStage;
   /** success:falseの場合の理由(ログ・出力用) */
   error?: string;
+  /** stage:"skipped"の場合の理由の種別(F9: 冪等性/不発リカバリの許容範囲外) */
+  skipReason?: "already-posted" | "outside-recovery-window";
   candidate?: NewsCandidate;
   selectionReason?: string;
   consideredCount?: number;
@@ -95,6 +108,19 @@ export interface RunPipelineOptions {
   publish: PublishFn;
   /** テスト用の依存差し替え(省略時は実I/Oを使う) */
   deps?: Partial<PipelineDependencies>;
+  /**
+   * F9: 投稿枠識別子(Sprint 8時点ではまだ朝/昼/夜は実装されないため、任意の文字列として受け取る)。
+   * 指定すると、同一枠・同一日の二重投稿防止(冪等性)チェックが有効になる。
+   */
+  slot?: string;
+  /**
+   * F9: slot指定時、その枠の本来の予定時刻(ISO8601)。指定すると、不発リカバリの許容範囲チェックが
+   * 有効になる(範囲外ならstage:"skipped"で停止する)。省略時はこのチェックをスキップする
+   * (Sprint 8で枠の時刻マッピングが導入されるまでの暫定挙動)。
+   */
+  scheduledAt?: string;
+  /** F9: 不発リカバリの許容範囲(時間)。省略時はpostHistory.DEFAULT_RECOVERY_WINDOW_HOURS(環境変数上書き可)を使う */
+  recoveryWindowHours?: number;
 }
 
 /**
@@ -105,8 +131,41 @@ export interface RunPipelineOptions {
 export async function runPostingPipeline(options: RunPipelineOptions): Promise<PipelineResult> {
   const deps = { ...defaultDeps, ...options.deps };
 
-  const { scored } = await deps.collect({ injectDecoy: options.injectDecoy });
+  // F9: slot指定時は、収集(外部API呼び出し)より前に冪等性・不発リカバリの許容範囲をチェックし、
+  // 不要な収集・生成・API呼び出しを避ける。
   const history = await deps.loadHistory();
+
+  if (options.slot) {
+    const now = new Date();
+
+    if (hasPostedSlotOnDate(history, options.slot, now)) {
+      const reason = `本日「${options.slot}」枠は既に投稿済みのためスキップします(1枠1投稿の冪等性)`;
+      log.warn("pipeline stopped: slot already posted today (idempotency)", { slot: options.slot });
+      return { success: false, stage: "skipped", skipReason: "already-posted", error: reason, historyWritten: false };
+    }
+
+    if (options.scheduledAt) {
+      const scheduled = new Date(options.scheduledAt);
+      const toleranceHours = options.recoveryWindowHours ?? getConfiguredRecoveryWindowHours();
+      if (!isWithinRecoveryWindow(scheduled, now, toleranceHours)) {
+        const reason = `「${options.slot}」枠の予定時刻(${options.scheduledAt})から許容範囲(${toleranceHours}時間)を超えているため、不発リカバリとしての投稿は行いません`;
+        log.warn("pipeline stopped: outside recovery window for missed slot trigger", {
+          slot: options.slot,
+          scheduledAt: options.scheduledAt,
+          toleranceHours,
+        });
+        return {
+          success: false,
+          stage: "skipped",
+          skipReason: "outside-recovery-window",
+          error: reason,
+          historyWritten: false,
+        };
+      }
+    }
+  }
+
+  const { scored } = await deps.collect({ injectDecoy: options.injectDecoy });
   const selection = deps.select(scored, history);
 
   if (!selection.selected) {
@@ -137,19 +196,41 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
   const tweets = deps.buildThread(generation.text, selection.selected.url);
 
   let historyWritten = false;
+  let historyEntryId: string | undefined;
   if (options.writeHistory) {
-    await deps.appendHistory({
+    const entry = await deps.appendHistory({
       url: selection.selected.url,
       title: selection.selected.title,
       score: selection.selected.score,
       selectedAt: new Date().toISOString(),
+      slot: options.slot,
     });
     historyWritten = true;
+    historyEntryId = entry.id;
   } else {
     log.info("not recording selection into post history (writeHistory=false)");
   }
 
   const publishResult = await options.publish(tweets, selection.selected);
+
+  // F9: 実際にXへ投稿が完了した(または明確に失敗した)場合のみ、選定時に書き込んだ履歴エントリへ
+  // 投稿結果(投稿日時・ツイートID・状態)を反映する。ドライラン(意図的に未送信、error未設定)では
+  // 反映せず、"selected"のままにしておく。
+  if (historyWritten && historyEntryId) {
+    if (publishResult.posted) {
+      await deps.updateHistory(historyEntryId, {
+        status: "posted",
+        postedAt: publishResult.postedAt ?? new Date().toISOString(),
+        tweetIds: publishResult.tweetIds ?? [],
+        slot: options.slot,
+      });
+    } else if (publishResult.error) {
+      await deps.updateHistory(historyEntryId, {
+        status: "failed",
+        slot: options.slot,
+      });
+    }
+  }
 
   return {
     success: true,

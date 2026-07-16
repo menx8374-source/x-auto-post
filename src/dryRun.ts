@@ -35,21 +35,35 @@ function printPreview(tweets: ThreadTweet[]): void {
   }
 }
 
+/** "--slot=morning" 形式の引数から値を取り出す。未指定ならundefined */
+function readArgValue(args: string[], flag: string): string | undefined {
+  const prefix = `${flag}=`;
+  const found = args.find((a) => a.startsWith(prefix));
+  return found ? found.slice(prefix.length) : undefined;
+}
+
 async function main() {
   loadDotEnvIfPresent();
   const args = process.argv.slice(2);
   const injectDecoy = args.includes("--inject-decoy");
   // ドライランは既定で投稿履歴(既出判定用)を汚さない。明示的に指定した場合のみ書き込む。
   const writeHistory = args.includes("--write-history");
+  // F9: 冪等性・不発リカバリの許容範囲チェックをドライランでも確認できるようにする(任意)
+  const slot = readArgValue(args, "--slot");
+  const scheduledAt = readArgValue(args, "--scheduled-at");
 
   log.info("running dry run pipeline (collect -> select -> generate -> thread, no posting to X)", {
     writeHistory,
+    slot,
+    scheduledAt,
   });
 
   const result = await runPostingPipeline({
     injectDecoy,
     writeHistory,
     publish: dryRunPublish,
+    slot,
+    scheduledAt,
   });
 
   const outDir = path.join(process.cwd(), "data", "output");
@@ -57,7 +71,7 @@ async function main() {
   const outFile = path.join(outDir, "latest-dryrun.json");
 
   if (!result.success) {
-    log.warn(`dry run stopped at stage "${result.stage}"`, { reason: result.error });
+    log.warn(`dry run stopped at stage "${result.stage}"`, { reason: result.error, skipReason: result.skipReason });
     await writeFile(
       outFile,
       JSON.stringify(
@@ -66,6 +80,7 @@ async function main() {
           dryRun: true,
           success: false,
           stage: result.stage,
+          skipReason: result.skipReason,
           error: result.error,
         },
         null,
