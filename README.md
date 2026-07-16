@@ -77,11 +77,11 @@ npm run typecheck
 
 `npm run collect` を実行すると、Hacker News / Reddit(r/artificial, r/MachineLearning, r/OpenAI) / RSS(TechCrunch AI, VentureBeat AI, The Verge AI, Google News AI検索)から候補を収集し、急上昇スコア降順のテーブルをコンソールに出力し、構造化データを `data/output/latest-candidates.json` に保存する。一部の情報源への通信が失敗しても処理全体は継続し、失敗はログ(`[WARN]`)に残る。
 
-`npm run select` を実行すると、候補リストから「過去に投稿(選定)済みのURL・実質同一記事・スコアしきい値未満」を除外した上で最高スコアの1件を選定し、タイトル・URL・スコア・選定理由をログに出力する。選定結果は `data/output/latest-selection.json` に保存され、選定した記事は `data/history/post-history.json`(記事URL・タイトル・スコア・選定日時に加え、Sprint 7以降は投稿枠(slot)・投稿完了日時(postedAt)・ツイートID(tweetIds)・状態(status)も記録。既出判定・冪等性判定に使う実行時の状態ファイルのためgit管理対象外)に追記される。有効な候補が1件もない場合は投稿せず、理由付きで `[WARN]` ログに残す(Xへの投稿はSprint 6以降で実装)。
+`npm run select` を実行すると、候補リストから「過去に投稿(選定)済みのURL・実質同一記事・スコアしきい値未満」を除外した上で最高スコアの1件を選定し、タイトル・URL・スコア・選定理由をログに出力する。選定結果は `data/output/latest-selection.json` に保存され、選定した記事は `data/history/post-history.json`(記事URL・タイトル・スコア・選定日時に加え、Sprint 7以降は投稿枠(slot)・投稿完了日時(postedAt)・ツイートID(tweetIds)・状態(status)も記録。既出判定・冪等性判定に使う実行時の状態ファイル。Sprint 9以降、GitHub Actions上での実行後にこのファイルをコミットして永続化するため**git管理対象**)に追記される。有効な候補が1件もない場合は投稿せず、理由付きで `[WARN]` ログに残す(Xへの投稿はSprint 6以降で実装)。
 
 ### F9: 投稿状態・履歴管理と冪等性(不発リカバリ)
 
-`src/postHistory.ts` が投稿履歴(`data/history/post-history.json`)の読み書きに加え、以下を提供する。
+`src/postHistory.ts` が投稿履歴(`data/history/post-history.json`。Sprint 9以降git管理対象、詳細はF8節)の読み書きに加え、以下を提供する。
 
 - **冪等性**: `runPostingPipeline()` に `slot`(投稿枠)を指定すると、実行開始時に `hasPostedSlotOnDate()` で「本日その枠が既に投稿済み(status:"posted")か」を判定し、済みならAPI呼び出し(収集・生成・投稿)を一切行わず `stage:"skipped"`, `skipReason:"already-posted"` で安全に終了する。同一枠・同一日の二重起動があっても二重投稿されない。
 - **不発リカバリ**: `slot` と合わせて `scheduledAt`(その枠の本来の予定時刻、ISO8601)を指定すると、`isWithinRecoveryWindow()` で予定時刻からの経過時間を判定する。許容範囲(既定3時間、`POST_RECOVERY_WINDOW_HOURS` 環境変数または `recoveryWindowHours` オプションで上書き可)内なら投稿を補い、範囲外(例: 深夜に朝枠)なら `stage:"skipped"`, `skipReason:"outside-recovery-window"` で投稿しない。
@@ -104,6 +104,16 @@ npm run typecheck
 `npm run dryrun` を実行すると、F1〜F5(収集→選定→生成→分割→リンク付与)を `src/pipeline.ts` の共通パイプライン(`runPostingPipeline`)1本で一気通貫実行し、投稿予定の全ツイート(順序・各文字数・リンクツイート含む)をコンソールに表示した上で `data/output/latest-dryrun.json` に保存する。Xへは1件も投稿しない。既定では投稿履歴(`data/history/post-history.json`、既出判定用)に書き込まない。あえて記録したい場合のみ `--write-history` を付ける。`--inject-decoy` で検証用ダミー候補を混ぜられる。共通パイプラインは最後に呼ぶ「投稿する」関数(`publish`)だけを差し替え可能な設計になっており、このコマンドは送信しない `dryRunPublish` を渡している。本番投稿(`npm run post`)は、収集〜リンク付与までの同じパイプラインに、実際にX APIへ送信する `xApiPublish` 関数を渡すだけで差し替えられる(コード上の差異は「実際に送信するか否か」のみ)。いずれかの段階(選定候補なし・生成失敗等)で止まった場合は `[WARN]`/`[ERROR]` ログとともに理由を出力し、終了コード1で安全に終わる。
 
 `npm run post` を実行すると、`npm run dryrun` と同じパイプラインで、最後に実際にX API v2(`twitter-api-v2`)へスレッドを投稿する(`src/xPublish.ts`)。1件目を投稿後、2件目以降は直前のツイートIDへの返信(`in_reply_to_tweet_id`)として投稿し、1本のスレッドとして連結する。途中のツイート投稿が失敗した場合、そこまでの投稿済みツイートID・失敗箇所を記録して以降の投稿は行わない。X APIのレート制限(HTTP 429)を検知した場合は既定で最大2回・待機上限60秒の範囲でのみリトライし、それを超える場合は諦めて理由を記録する(無制限リトライ・連投回避策は行わない)。全件投稿成功時は投稿したツイートID群と投稿完了時刻を記録する。結果は `data/output/latest-publish.json` に保存される。`X_API_KEY`/`X_API_SECRET`/`X_ACCESS_TOKEN`/`X_ACCESS_SECRET` のいずれかが未設定の場合はAPIを呼び出さず安全にエラーとして終了する。
+
+### F8: 外部cronサービスからのトリガー連携(GitHub Actions workflow_dispatch)
+
+GitHub Actionsの`schedule`(cron)トリガーは実行遅延・不発が多いため、**主経路は cron-job.org 等の外部無料cronサービスから GitHub Actions の `workflow_dispatch` REST APIエンドポイントを定時に叩く方式**にする。
+
+- ワークフロー定義: [`.github/workflows/post.yml`](.github/workflows/post.yml)。`workflow_dispatch`イベントで起動し、入力として`slot`(`auto`/`morning`/`noon`/`evening`)と`mode`(`post`=本番投稿/`dryrun`=動作確認のみ)を受け取る。実行内容は`slot=auto`のとき`npm run post -- --auto-slot`相当、`slot`を明示指定したときは`npm run post -- --slot=<slot>`相当(`mode=dryrun`のときは同等の`dryrun`コマンド)。
+- 必要な環境変数はGitHub Actions側の**Repository Secrets**(`ANTHROPIC_API_KEY`/`X_API_KEY`/`X_API_SECRET`/`X_ACCESS_TOKEN`/`X_ACCESS_SECRET`。任意で`ANTHROPIC_MODEL`/`POST_RECOVERY_WINDOW_HOURS`)として登録する(リポジトリの `.env` とは別物。GitHub Actions上では`.env`ファイルは使わない)。
+- 実行後、`data/history/post-history.json`(投稿履歴。冪等性・既出判定に使う)に変更があればワークフローがコミット・プッシュしてリポジトリへ永続化する(GitHub Actionsのチェックアウトは実行ごとに使い捨てのため、コミットしない限り次回実行が前回の状態を参照できない)。差分が無ければコミットはスキップされる。
+- `schedule`トリガーも定義されているが、あくまで外部cronが不発だった場合の**バックアップ用途**であり主経路ではない(ワークフロー内のコメント参照)。冪等性チェックにより、外部cron経由で既に投稿済みならバックアップ実行は何も送信せず安全にスキップされる。
+- cron-job.org等で3枠ぶんのジョブを設定する具体的な手順(叩くURL・HTTPメソッド・認証ヘッダ・リクエストボディ・設定時刻)は [`docs/cron-setup.md`](docs/cron-setup.md) を参照。
 
 ## 環境変数
 

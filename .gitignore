@@ -29,8 +29,13 @@ out/
 # Runtime output (regenerated each run, not source)
 data/output/
 
-# Runtime state (post selection/posting history — a local data store, not source)
-data/history/
+# Runtime state (post selection/posting history)
+# Sprint 9: post-history.json IS committed to git. GitHub Actions runs on ephemeral checkouts,
+# so cross-run idempotency (1 slot/day) and existing-article dedup require the history file to be
+# persisted in the repo itself (the workflow commits+pushes it after each run). Any other file that
+# might land under data/history/ stays ignored.
+data/history/*
+!data/history/post-history.json
 
 # Logs
 *.log
