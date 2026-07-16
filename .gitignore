@@ -29,6 +29,9 @@ out/
 # Runtime output (regenerated each run, not source)
 data/output/
 
+# Runtime state (post selection/posting history — a local data store, not source)
+data/history/
+
 # Logs
 *.log
 npm-debug.log*

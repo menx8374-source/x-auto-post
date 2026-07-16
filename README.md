@@ -15,6 +15,15 @@ npm run collect
 # 検証用: 「古く話題も伸びていない記事」を候補に混ぜて、上位3件に入らないことを確認する
 npm run collect -- --inject-decoy
 
+# F2: 収集済み候補から投稿対象1件を既出回避して選定する(コマンド1つ)
+npm run select
+
+# 直近の npm run collect の出力(data/output/latest-candidates.json)を使って選定する(再収集せず、デモ・検証に便利)
+npm run select -- --from-cache
+
+# 選定しても履歴に記録しない(繰り返し検証したいときに履歴を汚さない)
+npm run select -- --from-cache --dry
+
 # テスト実行
 npm test
 
@@ -23,6 +32,8 @@ npm run typecheck
 ```
 
 `npm run collect` を実行すると、Hacker News / Reddit(r/artificial, r/MachineLearning, r/OpenAI) / RSS(TechCrunch AI, VentureBeat AI, The Verge AI, Google News AI検索)から候補を収集し、急上昇スコア降順のテーブルをコンソールに出力し、構造化データを `data/output/latest-candidates.json` に保存する。一部の情報源への通信が失敗しても処理全体は継続し、失敗はログ(`[WARN]`)に残る。
+
+`npm run select` を実行すると、候補リストから「過去に投稿(選定)済みのURL・実質同一記事・スコアしきい値未満」を除外した上で最高スコアの1件を選定し、タイトル・URL・スコア・選定理由をログに出力する。選定結果は `data/output/latest-selection.json` に保存され、選定した記事は `data/history/post-history.json`(記事URL・タイトル・スコア・選定日時を記録。既出判定に使う実行時の状態ファイルのためgit管理対象外)に追記される。有効な候補が1件もない場合は投稿せず、理由付きで `[WARN]` ログに残す(Xへの投稿・文面生成はSprint 2時点では未実装)。
 
 ## 環境変数
 

@@ -9,14 +9,11 @@ import type { SourceFetcher } from "./types.js";
 import { hackerNewsSource } from "./sources/hackerNews.js";
 import { redditSources } from "./sources/reddit.js";
 import { rssSources } from "./sources/rss.js";
+import { normalizeUrl } from "./urlUtil.js";
 
 const MIN_CANDIDATES = 10;
 
 const ALL_SOURCES: SourceFetcher[] = [hackerNewsSource, ...redditSources, ...rssSources];
-
-function normalizeUrl(url: string): string {
-  return url.trim().replace(/\/$/, "").toLowerCase();
-}
 
 /** 検証用: 意図的に「古く話題も伸びていない」記事を候補に混ぜる(--inject-decoy 時のみ) */
 function buildDecoyCandidate(): ScorableCandidate {

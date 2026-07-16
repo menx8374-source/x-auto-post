@@ -38,3 +38,23 @@ export interface SourceFetcher {
   name: string;
   fetch: () => Promise<import("./scoring.js").ScorableCandidate[]>;
 }
+
+/**
+ * F2/F9: 投稿(選定)履歴1件分。
+ *
+ * Sprint 2時点では「投稿対象として確定した」タイミングで記録される最小限の履歴。
+ * Sprint 7(F9: 冪等性・不発リカバリ)でslot(投稿枠)・status(成功/失敗)・tweetIds等を
+ * 拡張する前提のため、キーの追加だけで済むようフラットな形にしてある。
+ */
+export interface PostHistoryEntry {
+  /** 元記事URL(そのまま) */
+  url: string;
+  /** normalizeUrl()済みのURL。既出判定の照合に使う */
+  normalizedUrl: string;
+  /** 記事タイトル(実質同一記事の判定・ログ確認用) */
+  title: string;
+  /** 選定時点の急上昇スコア */
+  score?: number;
+  /** この記事が投稿対象として選定された日時(ISO8601) */
+  selectedAt: string;
+}

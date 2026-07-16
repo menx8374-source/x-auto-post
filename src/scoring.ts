@@ -14,7 +14,7 @@ const STOPWORDS = new Set([
 ]);
 
 /** タイトルから話題クラスタリング用の重要キーワード集合を抽出する */
-function extractKeywords(title: string): Set<string> {
+export function extractKeywords(title: string): Set<string> {
   const words = title
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
@@ -23,7 +23,7 @@ function extractKeywords(title: string): Set<string> {
   return new Set(words);
 }
 
-function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
+export function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   if (a.size === 0 || b.size === 0) return 0;
   let intersection = 0;
   for (const w of a) {
@@ -33,7 +33,7 @@ function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
   return union === 0 ? 0 : intersection / union;
 }
 
-const CLUSTER_SIMILARITY_THRESHOLD = 0.4;
+export const CLUSTER_SIMILARITY_THRESHOLD = 0.4;
 
 /**
  * 各候補について、タイトルが直接類似している(閾値以上の)候補群の情報源数を

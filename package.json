@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "collect": "tsx src/collectNews.ts",
+    "select": "tsx src/selectPost.ts",
     "test": "node --import tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
