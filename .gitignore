@@ -26,6 +26,9 @@ out/
 *.sqlite3
 *.db
 
+# Runtime output (regenerated each run, not source)
+data/output/
+
 # Logs
 *.log
 npm-debug.log*

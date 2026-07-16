@@ -1,0 +1,23 @@
+{
+  "name": "xautomode",
+  "version": "1.0.0",
+  "description": "X(旧Twitter)向けAIニュース自動投稿バックエンド。急上昇AIニュースの収集・スコアリング・投稿を自動化する。",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "collect": "tsx src/collectNews.ts",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "rss-parser": "^3.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2"
+  }
+}
