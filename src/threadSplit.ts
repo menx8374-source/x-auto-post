@@ -169,32 +169,44 @@ export function buildLinkTweetText(url: string): string {
 
 export interface ComposeThreadOptions {
   maxBodyTweets?: number;
+  /** F12: リンクツイートを含めるかどうか。既定はtrue(含める) */
+  includeLinkTweet?: boolean;
+  /** F12: リンクツイートの位置。"end"(既定、スレッド末尾)または"start"(スレッド先頭) */
+  linkPosition?: "start" | "end";
 }
 
 /**
- * 生成済み本文と元記事URLから、投稿予定のツイート配列(本文N件+リンク1件)を組み立てる。
- * 本文側はURLを含まないため文字数計算に影響せず、リンクはスレッド末尾の別ツイートとして続く。
+ * 生成済み本文と元記事URLから、投稿予定のツイート配列(本文N件+リンク0〜1件)を組み立てる。
+ * 本文側はURLを含まないため文字数計算に影響せず、リンクは別ツイートとして本文の前後どちらかに続く
+ * (F12: `options.includeLinkTweet`/`options.linkPosition`で有無・位置を変更できる)。
  */
 export function composeThread(
   bodyText: string,
   url: string,
   options: ComposeThreadOptions = {}
 ): ThreadTweet[] {
+  const includeLinkTweet = options.includeLinkTweet ?? true;
+  const linkPosition = options.linkPosition ?? "end";
+
   const bodyTexts = splitIntoBodyTweets(bodyText, options.maxBodyTweets ?? MAX_BODY_TWEETS);
-  const tweets: ThreadTweet[] = bodyTexts.map((text, i) => ({
-    index: i + 1,
+  const parts: { text: string; kind: "body" | "link" }[] = bodyTexts.map((text) => ({
     text,
-    charLength: calculateTweetLength(text),
-    kind: "body",
+    kind: "body" as const,
   }));
 
-  const linkText = buildLinkTweetText(url);
-  tweets.push({
-    index: tweets.length + 1,
-    text: linkText,
-    charLength: calculateTweetLength(linkText),
-    kind: "link",
-  });
+  if (includeLinkTweet) {
+    const linkPart = { text: buildLinkTweetText(url), kind: "link" as const };
+    if (linkPosition === "start") {
+      parts.unshift(linkPart);
+    } else {
+      parts.push(linkPart);
+    }
+  }
 
-  return tweets;
+  return parts.map((p, i) => ({
+    index: i + 1,
+    text: p.text,
+    charLength: calculateTweetLength(p.text),
+    kind: p.kind,
+  }));
 }

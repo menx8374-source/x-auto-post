@@ -1,14 +1,14 @@
 /**
  * F7: 1日3回・固定時刻でのスケジュール投稿。
  *
- * 投稿枠(朝/昼/夜)の目安時刻を1箇所(POST_SLOTS)で管理し、現在時刻(または注入した時刻)から
- * どの枠に該当するかを判定する(resolveCurrentSlot)。F12(設定管理)の正式実装はSprint 10で行うが、
- * 「1箇所に集約する」という受け入れ基準はこのファイルで先取りして満たす。
+ * 投稿枠(朝/昼/夜)の目安時刻を1箇所(src/config.tsの`getPostSlots()`、F12: 設定管理)で管理し、
+ * 現在時刻(または注入した時刻)からどの枠に該当するかを判定する(resolveCurrentSlot)。
  *
  * 時刻は必ずJST(UTC+9固定オフセット)基準で判定する。日本にサマータイムは無いため固定オフセットで
  * よい(Sprint 7でtoDateKeyがUTC基準になっていたことによる日境界バグが見つかった教訓を踏襲)。
  */
 import { DEFAULT_RECOVERY_WINDOW_HOURS, getConfiguredRecoveryWindowHours } from "./postHistory.js";
+import { getPostSlots } from "./config.js";
 
 /** JSTとUTCの固定オフセット(ミリ秒) */
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -25,15 +25,13 @@ export interface PostSlotDefinition {
 }
 
 /**
- * F7: 投稿枠の目安時刻の唯一の定義箇所。
- * 07:30(朝)/12:15(昼)/21:00(夜) JST。通勤/始業前・昼休み・夜のピーク帯を狙う。
- * 変更する場合はここだけを編集すればよい(コード各所に散らばらせない)。
+ * F7/F12: 投稿枠の目安時刻。既定は07:30(朝)/12:15(昼)/21:00(夜) JST(通勤/始業前・昼休み・夜のピーク帯を狙う)。
+ * Sprint 10より、実際の値の取得元はsrc/config.tsの`getPostSlots()`に一元化した
+ * (`POST_SLOT_MORNING_TIME`等の環境変数で上書き可能)。この定数はモジュール読み込み時点の値
+ * (主に後方互換・表示用)であり、`resolveCurrentSlot()`は呼び出しのたびに`getPostSlots()`を
+ * 読み直すため`.env`の変更が実行に反映される。
  */
-export const POST_SLOTS: PostSlotDefinition[] = [
-  { id: "morning", label: "朝", hourJst: 7, minuteJst: 30 },
-  { id: "noon", label: "昼", hourJst: 12, minuteJst: 15 },
-  { id: "evening", label: "夜", hourJst: 21, minuteJst: 0 },
-];
+export const POST_SLOTS: PostSlotDefinition[] = getPostSlots();
 
 export interface ResolvedSlot {
   /** 該当した投稿枠の識別子(POST_SLOTS[].id) */
@@ -81,6 +79,9 @@ export function resolveCurrentSlot(
   now: Date = new Date(),
   toleranceHours: number = getConfiguredRecoveryWindowHours()
 ): ResolvedSlot | null {
+  // F12: POST_SLOTS(モジュール読み込み時点の値)ではなく、呼び出しのたびにgetPostSlots()を
+  // 読み直すことで、`.env`側の投稿時刻設定の変更を実行のたびに反映する。
+  const slots = getPostSlots();
   const todayParts = jstDateParts(now);
   const yesterdayParts = jstDateParts(new Date(now.getTime() - 24 * 60 * 60 * 1000));
   const toleranceMs = toleranceHours * 60 * 60 * 1000;
@@ -88,7 +89,7 @@ export function resolveCurrentSlot(
   let best: { slot: PostSlotDefinition; scheduledAt: Date; elapsedMs: number } | undefined;
 
   for (const parts of [todayParts, yesterdayParts]) {
-    for (const slot of POST_SLOTS) {
+    for (const slot of slots) {
       const scheduledAt = scheduledAtForJstDate(slot, parts);
       const elapsedMs = now.getTime() - scheduledAt.getTime();
       if (elapsedMs < 0 || elapsedMs > toleranceMs) {

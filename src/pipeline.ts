@@ -13,6 +13,7 @@ import { collectAndScoreNews } from "./collectNews.js";
 import { selectNextPost, type SelectionResult } from "./selectPost.js";
 import { generatePostText, type PostGenerationResult } from "./generatePost.js";
 import { composeThread, type ThreadTweet } from "./threadSplit.js";
+import { assertValidConfig, getMaxBodyTweets, getLinkTweetConfig } from "./config.js";
 import {
   loadHistory,
   appendHistoryEntry,
@@ -66,12 +67,26 @@ export interface PipelineDependencies {
   updateHistory: (id: string, updates: PostHistoryUpdate) => Promise<PostHistoryEntry | null>;
 }
 
+/**
+ * F12: 呼び出しのたびに設定(最大ツイート本数・リンクツイート有無/位置)を読み直してから
+ * composeThreadへ渡す。`.env`側の変更を実行のたびに反映するため、モジュール読み込み時点の
+ * 値をキャプチャして固定しない。
+ */
+export function buildThreadWithConfig(text: string, url: string): ThreadTweet[] {
+  const linkTweetConfig = getLinkTweetConfig();
+  return composeThread(text, url, {
+    maxBodyTweets: getMaxBodyTweets(),
+    includeLinkTweet: linkTweetConfig.enabled,
+    linkPosition: linkTweetConfig.position,
+  });
+}
+
 const defaultDeps: PipelineDependencies = {
   collect: (opts) => collectAndScoreNews(opts),
   loadHistory: () => loadHistory(),
   select: (candidates, history) => selectNextPost(candidates, history),
   generate: (candidate) => generatePostText(candidate),
-  buildThread: (text, url) => composeThread(text, url),
+  buildThread: buildThreadWithConfig,
   appendHistory: (entry) => appendHistoryEntry(entry),
   updateHistory: (id, updates) => updateHistoryEntry(id, updates),
 };
@@ -122,6 +137,13 @@ export interface RunPipelineOptions {
   scheduledAt?: string;
   /** F9: 不発リカバリの許容範囲(時間)。省略時はpostHistory.DEFAULT_RECOVERY_WINDOW_HOURS(環境変数上書き可)を使う */
   recoveryWindowHours?: number;
+  /**
+   * テスト用: 「現在時刻」を注入する。省略時は`new Date()`(実際の壁時計時刻)を使う。
+   * F9の不発リカバリ判定(isWithinRecoveryWindow)はこの時刻を基準にするため、テストでこれを
+   * 固定すれば実行タイミングに依存しない決定論的なテストが書ける(Sprint 10で
+   * test/pipeline.test.tsのflakyだったF9回帰テストをこの注入口を使って修正した)。
+   */
+  now?: Date;
 }
 
 /**
@@ -130,14 +152,27 @@ export interface RunPipelineOptions {
  * 唯一の差異は最後に呼ばれる `options.publish` が実際にXへ送信するかどうかだけ。
  */
 export async function runPostingPipeline(options: RunPipelineOptions): Promise<PipelineResult> {
+  // F12: 挙動系設定の不正値(未設定の必須項目・不正な時刻形式など)を実行の最初に検知する。
+  // 壊れた設定のまま収集・生成・投稿処理へ進めない(呼び出し側のCLIエントリポイントは
+  // 未catchの例外としてこれを受け取り、わかりやすいエラーとしてログに残しexitCode=1で終了する)。
+  assertValidConfig();
+
   const deps = { ...defaultDeps, ...options.deps };
+
+  // F10: 各実行の開始をログに残す(実行ログ)。
+  log.info("posting pipeline started", {
+    slot: options.slot,
+    scheduledAt: options.scheduledAt,
+    writeHistory: options.writeHistory,
+    injectDecoy: options.injectDecoy,
+  });
 
   // F9: slot指定時は、収集(外部API呼び出し)より前に冪等性・不発リカバリの許容範囲をチェックし、
   // 不要な収集・生成・API呼び出しを避ける。
   const history = await deps.loadHistory();
 
   if (options.slot) {
-    const now = new Date();
+    const now = options.now ?? new Date();
     // F9: 冪等性判定(hasPostedSlotOnDate)は「実行時点の暦日」ではなく、resolveCurrentSlotが
     // 解決した「その枠の予定時刻(scheduledAt)」の暦日を基準にする。深夜跨ぎのルックバック
     // (例: JST 00:30に実行され、前日21:00の夜枠として解決された場合)で素の現在時刻を使うと、
@@ -173,6 +208,9 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
   }
 
   const { scored } = await deps.collect({ injectDecoy: options.injectDecoy });
+  // F10: 実行ログに候補件数を残す。
+  log.info("candidates collected for this run", { candidateCount: scored.length });
+
   const selection = deps.select(scored, history);
 
   if (!selection.selected) {
@@ -185,6 +223,15 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
       historyWritten: false,
     };
   }
+
+  // F10: 実行ログに選定記事を残す。
+  log.info("selected candidate for posting", {
+    title: selection.selected.title,
+    url: selection.selected.url,
+    score: selection.selected.score,
+    reason: selection.reason,
+    consideredCount: selection.consideredCount,
+  });
 
   const generation = await deps.generate(selection.selected);
   if (!generation.success) {
@@ -219,6 +266,26 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
   }
 
   const publishResult = await options.publish(tweets, selection.selected);
+
+  // F10: 実行ログに投稿結果(成功/失敗/未送信)を残す。1回の実行につき必ず1行、結論だけが分かる形で出す。
+  if (publishResult.posted) {
+    log.info("pipeline finished: posted successfully", {
+      url: selection.selected.url,
+      tweetIds: publishResult.tweetIds,
+      postedAt: publishResult.postedAt,
+    });
+  } else if (publishResult.error) {
+    log.error("pipeline finished: posting failed", {
+      url: selection.selected.url,
+      error: publishResult.error,
+      detail: publishResult.detail,
+    });
+  } else {
+    log.info("pipeline finished: not posted (dry run)", {
+      url: selection.selected.url,
+      detail: publishResult.detail,
+    });
+  }
 
   // F9: 実際にXへ投稿が完了した(または明確に失敗した)場合のみ、選定時に書き込んだ履歴エントリへ
   // 投稿結果(投稿日時・ツイートID・状態)を反映する。ドライラン(意図的に未送信、error未設定)では

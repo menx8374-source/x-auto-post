@@ -16,28 +16,18 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { log } from "./logger.js";
 import { normalizeUrl } from "./urlUtil.js";
+import { DEFAULT_RECOVERY_WINDOW_HOURS, getRecoveryWindowHours } from "./config.js";
 import type { PostHistoryEntry } from "./types.js";
 
 export const DEFAULT_HISTORY_FILE = path.join(process.cwd(), "data", "history", "post-history.json");
 
-/** 不発リカバリの既定許容範囲(時間)。深夜に朝枠を投稿するような無制限な遅延投稿を避けるための上限 */
-export const DEFAULT_RECOVERY_WINDOW_HOURS = 3;
+// F12(Sprint 10): 許容範囲の既定値・取得ロジックはsrc/config.tsに一元化した。
+// このモジュールからの既存の呼び出し口(名前)はそのまま維持し、後方互換を保つ薄いラッパーとする。
+export { DEFAULT_RECOVERY_WINDOW_HOURS };
 
 /** POST_RECOVERY_WINDOW_HOURS 環境変数で不発リカバリの許容範囲(時間)を上書きできる。未設定/不正値なら既定値を使う */
 export function getConfiguredRecoveryWindowHours(): number {
-  const raw = process.env.POST_RECOVERY_WINDOW_HOURS;
-  if (!raw) {
-    return DEFAULT_RECOVERY_WINDOW_HOURS;
-  }
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    log.warn("invalid POST_RECOVERY_WINDOW_HOURS; falling back to default", {
-      raw,
-      default: DEFAULT_RECOVERY_WINDOW_HOURS,
-    });
-    return DEFAULT_RECOVERY_WINDOW_HOURS;
-  }
-  return parsed;
+  return getRecoveryWindowHours();
 }
 
 /**

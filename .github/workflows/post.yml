@@ -72,6 +72,17 @@ jobs:
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
           POST_RECOVERY_WINDOW_HOURS: ${{ secrets.POST_RECOVERY_WINDOW_HOURS }}
+          # F12(挙動系設定、任意): 未設定ならコード側の既定値を使う
+          POST_SLOT_MORNING_TIME: ${{ secrets.POST_SLOT_MORNING_TIME }}
+          POST_SLOT_NOON_TIME: ${{ secrets.POST_SLOT_NOON_TIME }}
+          POST_SLOT_EVENING_TIME: ${{ secrets.POST_SLOT_EVENING_TIME }}
+          POST_LANGUAGE: ${{ secrets.POST_LANGUAGE }}
+          POST_TONE: ${{ secrets.POST_TONE }}
+          POST_MAX_BODY_TWEETS: ${{ secrets.POST_MAX_BODY_TWEETS }}
+          POST_LINK_TWEET_ENABLED: ${{ secrets.POST_LINK_TWEET_ENABLED }}
+          POST_LINK_TWEET_POSITION: ${{ secrets.POST_LINK_TWEET_POSITION }}
+          # F10(任意): 投稿失敗・スキップ時の追加通知先(Slack incoming webhook等)
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
           # workflow_dispatch の inputs は type: choice で選択肢を制限しているが、
           # この制限は GitHub Web UI の「Run workflow」フォームでのみ強制され、
           # REST API(docs/cron-setup.md が案内する外部cron連携の呼び出し経路)経由では
@@ -111,6 +122,43 @@ jobs:
           else
             npm run "$NPM_SCRIPT" -- --slot="$SLOT"
           fi
+
+      # F10: 実行結果(成功/失敗/スキップ)をGitHub Actionsのジョブサマリーに残す。
+      # 投稿処理が失敗・スキップした場合でも(!cancelled())必ず実行し、利用者がActionsの実行一覧
+      # から結果に気づけるようにする(実行基盤のログによる通知)。
+      - name: Write job summary
+        if: ${{ !cancelled() }}
+        env:
+          MODE_INPUT: ${{ inputs.mode }}
+        run: |
+          set -e
+          MODE="${MODE_INPUT:-post}"
+          RESULT_FILE="data/output/latest-publish.json"
+          if [ "$MODE" = "dryrun" ]; then
+            RESULT_FILE="data/output/latest-dryrun.json"
+          fi
+          RESULT_FILE="$RESULT_FILE" MODE="$MODE" node -e "
+            const fs = require('fs');
+            const file = process.env.RESULT_FILE;
+            let summary = '## X投稿パイプライン実行結果\n\n';
+            try {
+              const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
+              summary += '- 実行日時: ' + (data.ranAt ?? '不明') + '\n';
+              summary += '- モード: ' + process.env.MODE + '\n';
+              summary += '- 成功: ' + data.success + '\n';
+              if (data.stage) summary += '- 停止段階: ' + data.stage + '\n';
+              if (data.skipReason) summary += '- スキップ理由: ' + data.skipReason + '\n';
+              if (data.error) summary += '- エラー: ' + data.error + '\n';
+              if (data.candidate) summary += '- 選定記事: ' + data.candidate.title + ' (' + data.candidate.url + ')\n';
+              if (data.publishResult) {
+                summary += '- 投稿結果: ' + (data.publishResult.posted ? '成功' : '未投稿/失敗') + '\n';
+                summary += '- 詳細: ' + data.publishResult.detail + '\n';
+              }
+            } catch (e) {
+              summary += '結果ファイル(' + file + ')の読み込みに失敗しました: ' + e.message + '\n';
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          "
 
       # F8/F9: 投稿履歴(data/history/post-history.json)はGitHub Actionsの実行ごとに使い捨てられる
       # チェックアウトの中でしか更新されないため、コミット・プッシュしてリポジトリへ永続化しない限り、

@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
 import { composeThread, type ThreadTweet } from "./threadSplit.js";
 import { TWEET_CHAR_LIMIT } from "./tweetLength.js";
+import { getMaxBodyTweets, getLinkTweetConfig } from "./config.js";
 import type { NewsCandidate } from "./types.js";
 
 interface GeneratedPostFile {
@@ -72,7 +73,13 @@ async function main() {
     return;
   }
 
-  const tweets = composeThread(generated.text, generated.candidate.url);
+  // F12: 最大ツイート本数・リンクツイート有無/位置は設定(.env)から取得する。
+  const linkTweetConfig = getLinkTweetConfig();
+  const tweets = composeThread(generated.text, generated.candidate.url, {
+    maxBodyTweets: getMaxBodyTweets(),
+    includeLinkTweet: linkTweetConfig.enabled,
+    linkPosition: linkTweetConfig.position,
+  });
   printThread(tweets);
 
   await writeFile(

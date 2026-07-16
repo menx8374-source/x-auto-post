@@ -14,18 +14,17 @@ import { fileURLToPath } from "node:url";
 import Anthropic from "@anthropic-ai/sdk";
 import { log } from "./logger.js";
 import { extractKeywords, jaccardSimilarity } from "./scoring.js";
+import { getGenerationStyle } from "./config.js";
 import type { NewsCandidate } from "./types.js";
 
 /**
  * 生成のトーン/言語設定。
- * Sprint 8(F12: 設定管理)で外部設定ファイル化される前提の暫定デフォルト値。
- * このスプリントでは「毎回同じ値を使うことで結果のブレを抑える」ことが目的のため、
- * 定数として1箇所にまとめている。
+ * Sprint 10(F12: 設定管理)より、実際の値はsrc/config.tsの`getGenerationStyle()`
+ * (`POST_LANGUAGE`/`POST_TONE`環境変数で上書き可)から取得する。この定数はモジュール読み込み
+ * 時点の値(主に後方互換・テスト用)であり、`buildGenerationPrompt()`は呼び出しのたびに
+ * `getGenerationStyle()`を読み直すため`.env`の変更が生成に反映される。
  */
-export const GENERATION_STYLE = {
-  language: "ja",
-  tone: "AIニュースを紹介するXアカウントとして中立的・正確で、煽りすぎない自然なトーン。",
-} as const;
+export const GENERATION_STYLE = getGenerationStyle();
 
 /** 使用するClaudeモデル。環境変数で上書き可能(モデルIDの陳腐化・利用者の選好に対応するため) */
 export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-20241022";
@@ -46,11 +45,13 @@ export interface GenerationPrompt {
 
 /** 選定記事から、Claudeへ渡すsystem/userプロンプトを組み立てる純粋関数(テスト容易性のため分離) */
 export function buildGenerationPrompt(candidate: NewsCandidate): GenerationPrompt {
+  // F12: 呼び出しのたびに設定を読み直すことで、.envのPOST_LANGUAGE/POST_TONEの変更を反映する。
+  const style = getGenerationStyle();
   const system = [
     "あなたはAIニュースを紹介するXアカウントの編集者です。",
     "以下の制約を厳守して投稿文面を作成してください。",
-    `- 出力は${GENERATION_STYLE.language === "ja" ? "日本語" : GENERATION_STYLE.language}のみ。`,
-    `- トーン: ${GENERATION_STYLE.tone}`,
+    `- 出力は${style.language === "ja" ? "日本語" : style.language}のみ。`,
+    `- トーン: ${style.tone}`,
     "- 記事タイトルをそのまま書き写さず、要点(何が・どう新しいか)を要約・言い換えて伝える。",
     "- 与えられた記事情報(タイトル・概要)に書かれていない事実を付け加えたり、断定的な誇張・憶測をしない。",
     "- 前置きや挨拶、説明文、引用符での囲みは書かず、投稿本文のみを出力する。ハッシュタグの羅列も付けない。",
@@ -186,7 +187,8 @@ export async function generatePostText(
     return { success: false, error: validation.reason ?? "生成結果の検証に失敗しました", candidate };
   }
 
-  log.info("generated post text", { url: candidate.url, length: text.length });
+  // F10: 実行ログに生成本文そのものを残す(監査・障害調査用)。認証情報ではないためマスク対象外。
+  log.info("generated post text", { url: candidate.url, length: text.length, text });
   return { success: true, text, candidate };
 }
 

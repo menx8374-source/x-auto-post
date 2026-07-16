@@ -17,6 +17,7 @@ import { log } from "./logger.js";
 import { runPostingPipeline } from "./pipeline.js";
 import { xApiPublish } from "./xPublish.js";
 import { resolveCurrentSlot } from "./postSchedule.js";
+import { notify } from "./notify.js";
 
 /** CLIから直接実行された場合のみ、リポジトリ直下の.env(存在すれば)をprocess.envへ読み込む */
 function loadDotEnvIfPresent(): void {
@@ -97,6 +98,29 @@ async function main() {
       reason: result.error,
       skipReason: result.skipReason,
     });
+
+    // F10: 「既に投稿済みでスキップ」(冪等性、正常系)以外は利用者の対応が必要な事象として通知する。
+    // 「不発リカバリの許容範囲外」は投稿枠を逃したことを示すため、放置すると次回まで気づけない。
+    if (result.skipReason === "outside-recovery-window") {
+      await notify({
+        level: "warning",
+        title: "投稿枠を逃しました(不発リカバリの許容範囲外)",
+        detail: result.error ?? "詳細不明",
+      });
+    } else if (result.stage === "select") {
+      await notify({
+        level: "warning",
+        title: "投稿対象の候補がありませんでした",
+        detail: result.error ?? "詳細不明",
+      });
+    } else if (result.stage === "generate") {
+      await notify({
+        level: "error",
+        title: "投稿文面の生成に失敗しました",
+        detail: result.error ?? "詳細不明",
+      });
+    }
+
     await writeFile(
       outFile,
       JSON.stringify(
@@ -126,6 +150,12 @@ async function main() {
       detail: publishResult?.detail,
       tweetIds: publishResult?.tweetIds,
       failedAtIndex: publishResult?.failedAtIndex,
+    });
+    // F10: 投稿失敗は利用者の対応が必要な事象として通知する。
+    await notify({
+      level: "error",
+      title: "Xへの投稿に失敗しました",
+      detail: publishResult?.detail ?? publishResult?.error ?? "詳細不明",
     });
   } else {
     log.info("posted thread to X successfully", {

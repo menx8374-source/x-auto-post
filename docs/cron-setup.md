@@ -16,6 +16,8 @@ F8(外部cronサービスからのトリガー連携)の実運用手順書。Git
    - `ANTHROPIC_API_KEY`
    - `X_API_KEY` / `X_API_SECRET` / `X_ACCESS_TOKEN` / `X_ACCESS_SECRET`
    - (任意) `ANTHROPIC_MODEL` / `POST_RECOVERY_WINDOW_HOURS`
+   - (任意、F12: 運用パラメータ) `POST_SLOT_MORNING_TIME` / `POST_SLOT_NOON_TIME` / `POST_SLOT_EVENING_TIME` / `POST_LANGUAGE` / `POST_TONE` / `POST_MAX_BODY_TWEETS` / `POST_LINK_TWEET_ENABLED` / `POST_LINK_TWEET_POSITION`(未設定ならコード側の既定値を使う。詳細は[README.md](../README.md)「環境変数」節)
+   - (任意、F10: 通知) `NOTIFY_WEBHOOK_URL`(投稿失敗・候補なし・不発リカバリ超過時にSlack incoming webhook等へ通知したい場合。未設定でもGitHub Actionsのジョブサマリーで結果を確認できる)
 3. **cron-job.org のアカウント**(無料プランで可) — https://cron-job.org/ でアカウント登録する。
 4. **リポジトリのWorkflow permissions** — `Settings > Actions > General > Workflow permissions` を「Read and write permissions」に設定しておく(投稿履歴コミットのステップがデフォルトの`GITHUB_TOKEN`でpushするため)。
 
