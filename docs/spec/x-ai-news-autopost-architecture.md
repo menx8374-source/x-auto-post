@@ -29,7 +29,19 @@ status: active
   - 実行環境の制約: 認証情報の発行・管理が不要なため、Sprint 1の「外部認証情報を必要としない」制約に合致する。
 - **話題性(急上昇)シグナルの設計**: 単一ソースのエンゲージメント数値に加え、複数ソース間でタイトルの類似度クラスタリング(キーワードのJaccard類似度)を行い、同一トピックを報じているソース数(mentionCount)を話題性スコアに反映する。
 
+## F6: X API v2投稿クライアント(Sprint 6で選定)
+
+- **候補として検討したもの**: `twitter-api-v2`(npm) / `node-twitter-api-v2`系フォーク / 自前でfetch+OAuth1.0a署名を実装
+- **選定結果**: `twitter-api-v2`(npm, dependencies)
+- **理由**:
+  - 実行環境の制約: 純npmパッケージで管理者権限インストール不要。Windows/GitHub Actions(Ubuntu runner)双方で追加ツールチェーンなしに動作する。
+  - 運用コスト: ライブラリ自体は無料(MIT)。X API側の課金はティア(Free/Basic等)に依存し、利用者が発行する認証情報のティアの投稿数上限に従う(詳細はブリーフ「リスク・留意事項」参照)。上限超過はシステム側でエラーとして扱い、投稿を諦めて記録する設計にした(規約違反の連投をしないため)。
+  - OAuth1.0a署名・レート制限情報(`rateLimit.reset`)の抽出・v2エンドポイント呼び出しを自前実装せず既存の保守された実装に委ねられる。GitHub Stars多数・週次ダウンロード数多数で実績あり。
+- **認証情報**: `X_API_KEY`/`X_API_SECRET`/`X_ACCESS_TOKEN`/`X_ACCESS_SECRET`を環境変数(`.env`)から読み込む。未設定時はAPIを呼び出さず安全にエラー終了する。
+- **設計**: `src/xPublish.ts`の`XPostClient`最小インターフェース越しに実クライアントを注入する形にし、テストでは実SDK/実APIを一切使わずモッククライアントで「投稿順序・返信連結・途中失敗時の記録・レート制限時の限定リトライ」を検証する。
+
 ## 依存ライブラリ
 
 - `rss-parser` (npm, dependencies): RSS/AtomフィードのXMLパース。保守されており広く使われている。
+- `twitter-api-v2` (npm, dependencies): X API v2クライアント(F6投稿・スレッド連結)。保守されており広く使われている。
 - `typescript`, `tsx`, `@types/node` (devDependencies): TypeScript実行・型チェック用。

@@ -23,10 +23,18 @@ export type PublishFn = (
 ) => Promise<PublishResult>;
 
 export interface PublishResult {
-  /** 実際にXへ送信したかどうか。ドライランでは常にfalse */
+  /** 実際にXへ送信したかどうか。ドライランでは常にfalse。スレッド途中で失敗した場合もfalse(部分投稿はtweetIdsで確認する) */
   posted: boolean;
   /** 人間可読な結果の説明(ログ・出力用) */
   detail: string;
+  /** 実際に投稿できたツイートIDの配列(投稿順)。1件も投稿できなかった/送信していない場合は空配列 */
+  tweetIds?: string[];
+  /** 全ツイートの投稿が完了した時刻(ISO8601)。全件成功時のみ設定される */
+  postedAt?: string;
+  /** スレッド途中で投稿が失敗した場合の失敗箇所(ThreadTweet.indexに対応、1始まり) */
+  failedAtIndex?: number;
+  /** 失敗時のエラー内容(ログ・出力用) */
+  error?: string;
 }
 
 /** ドライラン用のpublish実装: 何も送信せず、送信しなかった旨だけを返す */
