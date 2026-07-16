@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="30">
+<title>spec-pipeline ダッシュボード</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:   #fcfcfb;
+    --surface-2:   #f9f9f7;
+    --card:        #ffffff;
+    --text-1:      #0b0b0b;
+    --text-2:      #52514e;
+    --muted:       #898781;
+    --grid:        #e1e0d9;
+    --border:      rgba(11,11,11,0.10);
+    --accent:      #2a78d6;
+    --accent-soft: #cde2fb;
+    --good:        #0ca30c;
+    --good-soft:   #dff3df;
+    --warning:     #fab219;
+    --warning-soft:#fff3d6;
+    --critical:    #d03b3b;
+    --critical-soft:#fbe1e1;
+    --pending:     #898781;
+    --pending-soft:#eeede9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:   #1a1a19;
+      --surface-2:   #0d0d0d;
+      --card:        #232322;
+      --text-1:      #ffffff;
+      --text-2:      #c3c2b7;
+      --muted:       #898781;
+      --grid:        #2c2c2a;
+      --border:      rgba(255,255,255,0.10);
+      --accent:      #3987e5;
+      --accent-soft: #16324f;
+      --good:        #0ca30c;
+      --good-soft:   #123a12;
+      --warning:     #fab219;
+      --warning-soft:#4a3a10;
+      --critical:    #e66767;
+      --critical-soft:#4a1f1f;
+      --pending:     #898781;
+      --pending-soft:#2c2c2a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:   #1a1a19;
+    --surface-2:   #0d0d0d;
+    --card:        #232322;
+    --text-1:      #ffffff;
+    --text-2:      #c3c2b7;
+    --muted:       #898781;
+    --grid:        #2c2c2a;
+    --border:      rgba(255,255,255,0.10);
+    --accent:      #3987e5;
+    --accent-soft: #16324f;
+    --good:        #0ca30c;
+    --good-soft:   #123a12;
+    --warning:     #fab219;
+    --warning-soft:#4a3a10;
+    --critical:    #e66767;
+    --critical-soft:#4a1f1f;
+    --pending:     #898781;
+    --pending-soft:#2c2c2a;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--surface-2);
+    color: var(--text-1);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { padding: 24px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+
+  header.top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+  header.top h1 { font-size: 22px; margin: 0 0 4px; }
+  header.top .sub { color: var(--text-2); font-size: 13px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 12px; font-size: 12px; color: var(--text-2);
+  }
+  .meta-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+
+  .refresh-note {
+    font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap;
+  }
+  .refresh-note .refresh-now { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .refresh-note .refresh-now:hover { text-decoration: underline; }
+
+  .progress-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; margin-bottom: 20px;
+  }
+  .progress-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .progress-head .num { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .progress-head .label { font-size: 13px; color: var(--text-2); }
+  .bar-track {
+    height: 10px; border-radius: 999px; background: var(--pending-soft);
+    overflow: hidden; display: flex;
+  }
+  .bar-fill-good { background: var(--good); height: 100%; }
+  .bar-fill-crit { background: var(--critical); height: 100%; }
+  .progress-legend { display: flex; gap: 16px; margin-top: 10px; font-size: 12px; color: var(--text-2); flex-wrap: wrap; }
+  .legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+
+  .activity-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; margin-bottom: 20px; display: flex; gap: 16px; align-items: center;
+  }
+  .activity-icon {
+    width: 48px; height: 48px; border-radius: 12px; background: var(--accent-soft);
+    display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;
+  }
+  .activity-icon.pulsing { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); }
+    50% { box-shadow: 0 0 0 6px transparent; }
+  }
+  .activity-body .agent-name { font-weight: 600; font-size: 15px; }
+  .activity-body .action { color: var(--text-2); font-size: 13px; margin-top: 2px; }
+  .activity-body .elapsed { color: var(--muted); font-size: 12px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+  h2.section-title { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); margin: 24px 0 10px; }
+
+  .sprint-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .sprint-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+    border-left: 4px solid var(--pending);
+  }
+  .sprint-card.status-pass { border-left-color: var(--good); }
+  .sprint-card.status-in_progress { border-left-color: var(--accent); }
+  .sprint-card.status-fail_retry { border-left-color: var(--warning); }
+  .sprint-card.status-human_intervention { border-left-color: var(--critical); }
+  .sprint-card .row1 { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .sprint-card .num { font-weight: 600; font-size: 13px; }
+  .status-pill {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .status-pill.status-pass { background: var(--good-soft); color: var(--good); }
+  .status-pill.status-in_progress { background: var(--accent-soft); color: var(--accent); }
+  .status-pill.status-fail_retry { background: var(--warning-soft); color: #8a5a00; }
+  .status-pill.status-human_intervention { background: var(--critical-soft); color: var(--critical); }
+  .status-pill.status-pending { background: var(--pending-soft); color: var(--muted); }
+  .sprint-card .goal { font-size: 13px; color: var(--text-2); margin-bottom: 8px; line-height: 1.4; }
+  .sprint-card .links { display: flex; gap: 10px; flex-wrap: wrap; font-size: 12px; }
+  .sprint-card .links a { color: var(--accent); text-decoration: none; }
+  .sprint-card .links a:hover { text-decoration: underline; }
+  .sprint-card .attempts { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .sprint-card .issue { font-size: 12px; color: var(--critical); margin-top: 6px; }
+  .preview-thumbs { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .preview-thumb {
+    width: 72px; height: 54px; object-fit: cover; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--pending-soft);
+  }
+
+  .two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 780px) { .two-col { grid-template-columns: 1fr; } }
+
+  .doc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .doc-list li {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    font-size: 13px; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  }
+  .doc-list a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .doc-list a:hover { text-decoration: underline; }
+  .doc-list .doc-note { color: var(--muted); font-size: 11px; }
+
+  .event-list { list-style: none; margin: 0; padding: 0; max-height: 340px; overflow-y: auto; }
+  .event-list li {
+    padding: 8px 0; border-bottom: 1px solid var(--grid); font-size: 12.5px; display: flex; gap: 10px;
+  }
+  .event-list li:last-child { border-bottom: none; }
+  .event-list .time { color: var(--muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .event-list .text { color: var(--text-2); }
+
+  .empty-state {
+    background: var(--card); border: 1px dashed var(--border); border-radius: 12px;
+    padding: 40px 20px; text-align: center; color: var(--text-2); font-size: 14px;
+  }
+
+  footer.foot {
+    margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--grid);
+    font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script src="./pipeline-status.js"></script>
+<script>
+(function () {
+  var DATA = window.PIPELINE_STATUS || null;
+  var app = document.getElementById('app');
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function fmtRelative(iso) {
+    if (!iso) return '—';
+    var diff = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+    if (diff < 60) return diff + '秒前';
+    if (diff < 3600) return Math.floor(diff / 60) + '分前';
+    if (diff < 86400) return Math.floor(diff / 3600) + '時間前';
+    return Math.floor(diff / 86400) + '日前';
+  }
+
+  function fmtDuration(iso) {
+    if (!iso) return '';
+    var diff = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+    var m = Math.floor(diff / 60), s = diff % 60;
+    return '経過 ' + (m > 0 ? m + '分' : '') + s + '秒';
+  }
+
+  var AGENT_ICON = {
+    planner: '📝', generator: '🔨', evaluator: '🔍',
+    'security-review': '🛡️', 'code-review': '🔎', orchestrator: '⚙️', idle: '💤'
+  };
+  var AGENT_LABEL = {
+    planner: 'Planner', generator: 'Generator', evaluator: 'Evaluator',
+    'security-review': 'Security Review', 'code-review': 'Code Review', orchestrator: 'オーケストレーター', idle: '待機中'
+  };
+  var STATUS_LABEL = {
+    pending: '未着手', in_progress: '進行中', pass: 'PASS',
+    fail_retry: 'リトライ中', human_intervention: '要人手介入'
+  };
+
+  function renderEmpty() {
+    app.innerHTML =
+      '<header class="top"><div><h1>spec-pipeline ダッシュボード</h1>' +
+      '<div class="sub">まだパイプラインが開始されていません</div></div></header>' +
+      '<div class="empty-state">docs/pipeline-status.js が見つからないか、まだ初期化されていません。<br>' +
+      '<code>/spec-pipeline &lt;アイデア&gt;</code> でパイプラインを開始すると、ここに進捗が表示されます。</div>';
+  }
+
+  function render() {
+    if (!DATA) { renderEmpty(); return; }
+
+    var sprints = DATA.sprints || [];
+    var total = (DATA.summary && DATA.summary.totalSprints) || sprints.length || 0;
+    var passed = (DATA.summary && DATA.summary.passed) || sprints.filter(function (s) { return s.status === 'pass'; }).length;
+    var human = (DATA.summary && DATA.summary.humanIntervention) || sprints.filter(function (s) { return s.status === 'human_intervention'; }).length;
+    var pct = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+    var act = DATA.currentActivity || { agent: 'idle', label: '待機中' };
+    var isBusy = act.agent && act.agent !== 'idle';
+
+    var html = '';
+
+    html += '<header class="top">';
+    html += '<div><h1>' + esc(DATA.projectName || '無題プロジェクト') + '</h1>';
+    html += '<div class="sub">spec-pipeline ダッシュボード</div>';
+    html += '<div class="meta-row">';
+    if (DATA.platform) html += '<span class="badge">🖥 ' + esc(DATA.platform) + '</span>';
+    html += '<span class="badge">フェーズ: ' + esc(DATA.phase || '—') + '</span>';
+    html += '</div></div>';
+    html += '<div class="refresh-note">最終更新: ' + esc(fmtRelative(DATA.lastUpdated)) + '<br>30秒ごとに自動更新 · <a href="#" onclick="location.reload();return false;" class="refresh-now">今すぐ更新</a></div>';
+    html += '</header>';
+
+    html += '<div class="progress-card"><div class="progress-head">';
+    html += '<div><span class="num">' + passed + ' / ' + total + '</span> <span class="label">スプリント完了</span></div>';
+    html += '<div class="label">' + pct + '%</div></div>';
+    html += '<div class="bar-track"><div class="' + (human > 0 ? 'bar-fill-crit' : 'bar-fill-good') + '" style="width:' + pct + '%"></div></div>';
+    html += '<div class="progress-legend">';
+    html += '<span><span class="legend-dot" style="background:var(--good)"></span>PASS ' + passed + '</span>';
+    html += '<span><span class="legend-dot" style="background:var(--critical)"></span>要人手介入 ' + human + '</span>';
+    html += '<span><span class="legend-dot" style="background:var(--pending)"></span>残り ' + Math.max(0, total - passed - human) + '</span>';
+    html += '</div></div>';
+
+    html += '<div class="activity-card">';
+    html += '<div class="activity-icon' + (isBusy ? ' pulsing' : '') + '">' + (AGENT_ICON[act.agent] || '💤') + '</div>';
+    html += '<div class="activity-body">';
+    html += '<div class="agent-name">' + esc(AGENT_LABEL[act.agent] || act.agent || '待機中') +
+      (act.sprintNumber ? ' · Sprint ' + esc(act.sprintNumber) : '') + '</div>';
+    html += '<div class="action">' + esc(act.label || '') + '</div>';
+    if (isBusy && act.startedAt) html += '<div class="elapsed" data-started="' + esc(act.startedAt) + '">' + fmtDuration(act.startedAt) + '</div>';
+    html += '</div></div>';
+
+    html += '<div class="two-col"><div>';
+    html += '<h2 class="section-title">スプリント進捗</h2>';
+    if (sprints.length === 0) {
+      html += '<div class="empty-state">まだスプリント計画がありません（planner実行待ち）。</div>';
+    } else {
+      html += '<div class="sprint-grid">';
+      sprints.forEach(function (sp) {
+        var st = sp.status || 'pending';
+        html += '<div class="sprint-card status-' + esc(st) + '">';
+        html += '<div class="row1"><span class="num">Sprint ' + esc(sp.number) + '</span>' +
+          '<span class="status-pill status-' + esc(st) + '">' + esc(STATUS_LABEL[st] || st) + '</span></div>';
+        html += '<div class="goal">' + esc(sp.goal || '') + '</div>';
+        var links = [];
+        if (sp.selfEvalPath) links.push('<a href="../' + esc(sp.selfEvalPath) + '" target="_blank">自己評価</a>');
+        if (sp.evaluationPath) links.push('<a href="../' + esc(sp.evaluationPath) + '" target="_blank">評価レポート</a>');
+        if (links.length) html += '<div class="links">' + links.join('') + '</div>';
+        if (sp.attempts) html += '<div class="attempts">試行 ' + esc(sp.attempts) + ' / ' + esc(sp.maxAttempts || 3) + '</div>';
+        if (sp.commit) html += '<div class="attempts">commit ' + esc(String(sp.commit).slice(0, 7)) + '</div>';
+        if (sp.lastIssue) html += '<div class="issue">⚠ ' + esc(sp.lastIssue) + '</div>';
+        if (sp.previewPaths && sp.previewPaths.length) {
+          html += '<div class="preview-thumbs">';
+          sp.previewPaths.slice(0, 3).forEach(function (p) {
+            html += '<a href="../' + esc(p) + '" target="_blank"><img class="preview-thumb" src="../' + esc(p) + '" alt="Sprint ' + esc(sp.number) + ' プレビュー" loading="lazy"></a>';
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+
+    html += '<div>';
+    html += '<h2 class="section-title">ドキュメント</h2>';
+    html += '<ul class="doc-list">';
+    html += '<li><a href="./Home.md" target="_blank">Home (Obsidian入口)</a><span class="doc-note">Home.md</span></li>';
+    html += '<li><a href="./project-memory.md" target="_blank">プロジェクトメモリ</a><span class="doc-note">要約ダイジェスト</span></li>';
+    if (DATA.specPath) html += '<li><a href="../' + esc(DATA.specPath) + '" target="_blank">製品仕様書</a><span class="doc-note">spec.md</span></li>';
+    if (DATA.wireframesPath) html += '<li><a href="../' + esc(DATA.wireframesPath) + '" target="_blank">画面ワイヤーフレーム</a><span class="doc-note">wireframes.html</span></li>';
+    if (DATA.architecturePath) html += '<li><a href="../' + esc(DATA.architecturePath) + '" target="_blank">技術選定メモ</a><span class="doc-note">architecture.md</span></li>';
+    if (DATA.readmePath) html += '<li><a href="../' + esc(DATA.readmePath) + '" target="_blank">README</a><span class="doc-note">起動方法</span></li>';
+    html += '</ul>';
+
+    html += '<h2 class="section-title">最近のアクティビティ</h2>';
+    var events = (DATA.recentEvents || []).slice().reverse();
+    if (events.length === 0) {
+      html += '<div class="empty-state">まだ記録がありません</div>';
+    } else {
+      html += '<ul class="event-list">';
+      events.forEach(function (ev) {
+        html += '<li><span class="time">' + esc(fmtRelative(ev.time)) + '</span><span class="text">' + esc(ev.text) + '</span></li>';
+      });
+      html += '</ul>';
+    }
+    html += '</div></div>';
+
+    html += '<footer class="foot"><span>docs/pipeline-status.js を読み込んで表示しています。</span>' +
+      '<span id="next-refresh"></span></footer>';
+
+    app.innerHTML = html;
+  }
+
+  render();
+
+  // Live-tick relative times & countdown without waiting for the periodic page reload.
+  var REFRESH_SECONDS = 30;
+  var loadedAt = Date.now();
+  setInterval(function () {
+    var remain = REFRESH_SECONDS - Math.floor((Date.now() - loadedAt) / 1000) % REFRESH_SECONDS;
+    var el = document.getElementById('next-refresh');
+    if (el) el.textContent = '次回自動更新まで ' + Math.max(0, remain) + '秒';
+    var elapsedEl = document.querySelector('.elapsed[data-started]');
+    if (elapsedEl) elapsedEl.textContent = fmtDuration(elapsedEl.getAttribute('data-started'));
+  }, 1000);
+})();
+</script>
+</body>
+</html>

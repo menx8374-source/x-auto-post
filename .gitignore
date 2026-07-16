@@ -1,0 +1,41 @@
+# Secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials.json
+token.json
+*.token
+
+# Dependencies
+node_modules/
+__pycache__/
+.venv/
+venv/
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# Local databases (runtime data, not source)
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# spec-pipeline: 実行時ダッシュボード状態(スプリント成果物ではない。docs/dashboard.htmlは静的なので追跡対象)
+docs/pipeline-status.js
+
+# spec-pipeline: Playwright MCPのスクラッチ出力(evaluatorがプレビュー画像をdocs/sprints/へコピーした後の残骸)
+.playwright-mcp/
