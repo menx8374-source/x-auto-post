@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
 import { runPostingPipeline, dryRunPublish } from "./pipeline.js";
 import { TWEET_CHAR_LIMIT } from "./tweetLength.js";
+import { resolveCurrentSlot } from "./postSchedule.js";
 import type { ThreadTweet } from "./threadSplit.js";
 
 /** CLIから直接実行された場合のみ、リポジトリ直下の.env(存在すれば)をprocess.envへ読み込む */
@@ -49,8 +50,44 @@ async function main() {
   // ドライランは既定で投稿履歴(既出判定用)を汚さない。明示的に指定した場合のみ書き込む。
   const writeHistory = args.includes("--write-history");
   // F9: 冪等性・不発リカバリの許容範囲チェックをドライランでも確認できるようにする(任意)
-  const slot = readArgValue(args, "--slot");
-  const scheduledAt = readArgValue(args, "--scheduled-at");
+  let slot = readArgValue(args, "--slot");
+  let scheduledAt = readArgValue(args, "--scheduled-at");
+
+  // F7: --auto-slot 指定時は --slot/--scheduled-at を手動指定する代わりに、現在時刻(または
+  // --now で注入したテスト用時刻)からどの投稿枠(朝/昼/夜)に該当するかを自動判定する。
+  const autoSlot = args.includes("--auto-slot");
+  if (autoSlot) {
+    const nowRaw = readArgValue(args, "--now");
+    const now = nowRaw ? new Date(nowRaw) : new Date();
+    const resolved = resolveCurrentSlot(now);
+    if (!resolved) {
+      log.info("auto-slot: no scheduled slot (morning/noon/evening) is currently active; nothing to do", {
+        now: now.toISOString(),
+      });
+      const outDir = path.join(process.cwd(), "data", "output");
+      await mkdir(outDir, { recursive: true });
+      await writeFile(
+        path.join(outDir, "latest-dryrun.json"),
+        JSON.stringify(
+          {
+            ranAt: new Date().toISOString(),
+            dryRun: true,
+            success: false,
+            stage: "skipped",
+            skipReason: "no-active-slot",
+            error: "現在時刻はどの投稿枠(朝/昼/夜)の実行タイミングでもありません",
+          },
+          null,
+          2
+        ),
+        "utf-8"
+      );
+      return;
+    }
+    slot = resolved.slot;
+    scheduledAt = resolved.scheduledAt;
+    log.info(`auto-slot resolved to "${resolved.label}" (${resolved.slot})`, { scheduledAt });
+  }
 
   log.info("running dry run pipeline (collect -> select -> generate -> thread, no posting to X)", {
     writeHistory,

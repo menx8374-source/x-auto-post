@@ -57,8 +57,16 @@ npm run post
 # 検証用: 「古く話題も伸びていない」ダミー候補を混ぜて実行する
 npm run post -- --inject-decoy
 
-# F9: 本番投稿でも --slot / --scheduled-at を指定できる(Sprint8のcron連携で実際に使われる想定)
+# F9: 本番投稿でも --slot / --scheduled-at を指定できる
 npm run post -- --slot=morning --scheduled-at=2026-07-16T00:00:00.000Z
+
+# F7: --auto-slot を指定すると、--slot/--scheduled-at を手動指定する代わりに、現在時刻から
+# 朝(07:30)/昼(12:15)/夜(21:00) JSTのどの投稿枠に該当するかを自動判定する(Sprint9のcron連携で使う想定)
+npm run dryrun -- --write-history --auto-slot
+npm run post -- --auto-slot
+
+# F7: --now でテスト用に時刻を注入できる(--auto-slotと併用。省略時は実際の現在時刻を使う)
+npm run dryrun -- --auto-slot --now=2026-07-16T22:30:00.000Z
 
 # テスト実行
 npm test
@@ -78,8 +86,16 @@ npm run typecheck
 - **冪等性**: `runPostingPipeline()` に `slot`(投稿枠)を指定すると、実行開始時に `hasPostedSlotOnDate()` で「本日その枠が既に投稿済み(status:"posted")か」を判定し、済みならAPI呼び出し(収集・生成・投稿)を一切行わず `stage:"skipped"`, `skipReason:"already-posted"` で安全に終了する。同一枠・同一日の二重起動があっても二重投稿されない。
 - **不発リカバリ**: `slot` と合わせて `scheduledAt`(その枠の本来の予定時刻、ISO8601)を指定すると、`isWithinRecoveryWindow()` で予定時刻からの経過時間を判定する。許容範囲(既定3時間、`POST_RECOVERY_WINDOW_HOURS` 環境変数または `recoveryWindowHours` オプションで上書き可)内なら投稿を補い、範囲外(例: 深夜に朝枠)なら `stage:"skipped"`, `skipReason:"outside-recovery-window"` で投稿しない。
 - **投稿結果の反映**: 投稿(publish)が成功/失敗した場合、選定時に書き込んだ履歴エントリへ `updateHistoryEntry()` で投稿枠・投稿日時・ツイートID・状態(`status: "posted" | "failed"`)を反映する(ドライラン等の未送信時は反映しない)。
-- `npm run dryrun` / `npm run post` はいずれも `--slot=<枠名>` / `--scheduled-at=<ISO8601>` を受け付ける(Sprint 8で朝/昼/夜の実際の枠と時刻マッピングが導入されるまでは、値の受け渡しのみサポートする任意パラメータ)。
+- `npm run dryrun` / `npm run post` はいずれも `--slot=<枠名>` / `--scheduled-at=<ISO8601>` を手動指定として受け付ける。
 - 履歴は明示的に削除しない限りすべて残り、F2の既出判定(`selectPost.ts`)に引き続き利用される。Sprint 2形式(slot等のフィールドが無い)の既存データもそのまま読み込める(後方互換)。
+
+### F7: 1日3回・固定時刻でのスケジュール投稿
+
+`src/postSchedule.ts` の `POST_SLOTS` が、投稿枠(朝/昼/夜)の目安時刻(JST基準)を1箇所で定義する唯一の設定箇所(初期値: 07:30 / 12:15 / 21:00 JST)。この時刻を変更したい場合はここだけを編集すればよい。
+
+- `resolveCurrentSlot(now)` が、現在時刻(または注入した時刻)から「その枠の目安時刻以降・許容範囲(既定はF9と同じ `POST_RECOVERY_WINDOW_HOURS`、既定3時間)以内」であればその枠と判定する。どの枠の実行タイミングでもない場合は `null` を返す。
+- `npm run dryrun -- --auto-slot` / `npm run post -- --auto-slot` は、`--slot`/`--scheduled-at` を手動指定する代わりにこの判定結果を使う。該当する枠が無い時刻に実行した場合はAPI呼び出しを一切行わず `stage:"skipped"`, `skipReason:"no-active-slot"` として安全に終了する(結果は `data/output/latest-dryrun.json` / `latest-publish.json` に記録)。
+- `--now=<ISO8601>` でテスト用に時刻を注入できる(`--auto-slot` と併用。省略時は実際の現在時刻を使う)。
 
 `npm run generate` を実行すると、`data/output/latest-selection.json` の選定記事をもとに、Claude(Anthropic API)で日本語の投稿文面を1つ生成し、コンソールに表示した上で `data/output/latest-post.json` に保存する(`{ success: true, text, candidate }` または失敗時 `{ success: false, error, candidate }`)。`ANTHROPIC_API_KEY` が未設定、またはAPI呼び出しが失敗した場合や生成結果がタイトルの丸写しに近い/空/長すぎる等の検証に通らない場合は、投稿処理には進まず `success: false` としてエラーを記録し、プロセスは終了コード1で終わる(壊れた/空の投稿をしない)。
 

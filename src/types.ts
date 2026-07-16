@@ -65,7 +65,7 @@ export interface PostHistoryEntry {
   /** この記事が投稿対象として選定された日時(ISO8601) */
   selectedAt: string;
   /**
-   * 投稿枠(Sprint 7時点では任意の文字列。Sprint 8(F7)で朝/昼/夜等の実際の枠名が渡されるようになる)。
+   * 投稿枠(通常はsrc/postSchedule.tsのPOST_SLOTS[].id="morning"|"noon"|"evening")。
    * 同一枠・同一日の冪等性判定(hasPostedSlotOnDate)のキーに使う。
    */
   slot?: string;

@@ -109,14 +109,15 @@ export interface RunPipelineOptions {
   /** テスト用の依存差し替え(省略時は実I/Oを使う) */
   deps?: Partial<PipelineDependencies>;
   /**
-   * F9: 投稿枠識別子(Sprint 8時点ではまだ朝/昼/夜は実装されないため、任意の文字列として受け取る)。
+   * F7/F9: 投稿枠識別子(通常はsrc/postSchedule.tsのPOST_SLOTS[].id="morning"|"noon"|"evening"だが、
+   * このパイプライン自体は任意の文字列として受け取る)。
    * 指定すると、同一枠・同一日の二重投稿防止(冪等性)チェックが有効になる。
    */
   slot?: string;
   /**
    * F9: slot指定時、その枠の本来の予定時刻(ISO8601)。指定すると、不発リカバリの許容範囲チェックが
-   * 有効になる(範囲外ならstage:"skipped"で停止する)。省略時はこのチェックをスキップする
-   * (Sprint 8で枠の時刻マッピングが導入されるまでの暫定挙動)。
+   * 有効になる(範囲外ならstage:"skipped"で停止する)。省略時はこのチェックをスキップする。
+   * CLIから`--auto-slot`で自動判定した場合はsrc/postSchedule.tsのresolveCurrentSlot()が返す値が渡る。
    */
   scheduledAt?: string;
   /** F9: 不発リカバリの許容範囲(時間)。省略時はpostHistory.DEFAULT_RECOVERY_WINDOW_HOURS(環境変数上書き可)を使う */
@@ -137,8 +138,14 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
 
   if (options.slot) {
     const now = new Date();
+    // F9: 冪等性判定(hasPostedSlotOnDate)は「実行時点の暦日」ではなく、resolveCurrentSlotが
+    // 解決した「その枠の予定時刻(scheduledAt)」の暦日を基準にする。深夜跨ぎのルックバック
+    // (例: JST 00:30に実行され、前日21:00の夜枠として解決された場合)で素の現在時刻を使うと、
+    // 前日分の投稿履歴が見つからず冪等性チェックをすり抜けて二重投稿してしまうため
+    // (実害確認済み、Sprint 8で修正)。scheduledAt未指定時は従来通りnowにフォールバックする。
+    const referenceDate = options.scheduledAt ? new Date(options.scheduledAt) : now;
 
-    if (hasPostedSlotOnDate(history, options.slot, now)) {
+    if (hasPostedSlotOnDate(history, options.slot, referenceDate)) {
       const reason = `本日「${options.slot}」枠は既に投稿済みのためスキップします(1枠1投稿の冪等性)`;
       log.warn("pipeline stopped: slot already posted today (idempotency)", { slot: options.slot });
       return { success: false, stage: "skipped", skipReason: "already-posted", error: reason, historyWritten: false };

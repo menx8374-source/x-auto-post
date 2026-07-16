@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { runPostingPipeline, dryRunPublish, type PipelineDependencies, type PublishFn } from "../src/pipeline.js";
+import { resolveCurrentSlot } from "../src/postSchedule.js";
 import type { NewsCandidate, PostHistoryEntry } from "../src/types.js";
 import type { ThreadTweet } from "../src/threadSplit.js";
 
@@ -273,6 +274,65 @@ test("F9: 不発リカバリ - 許容範囲外(深夜に朝枠のような大幅
   assert.equal(result.stage, "skipped");
   assert.equal(result.skipReason, "outside-recovery-window");
   assert.equal(publishCalled, false);
+});
+
+test("F9回帰: 深夜跨ぎのルックバックでresolveCurrentSlotが前日の枠と解決した場合でも、冪等性判定はscheduledAtの暦日を基準にしてリトライの二重投稿を防ぐ", async () => {
+  // pipeline.ts内の不発リカバリ判定(isWithinRecoveryWindow)は実行時点の実際の壁時計(new Date())を
+  // 使うため、テストを実際の実行時刻から独立させる(いつ実行しても再現する)ために、実行時刻から
+  // 十分離れた(=必ず別のJST暦日になる)過去のscheduledAtを使い、許容範囲を大きめに設定する。
+  // これは「深夜跨ぎで前日の枠に解決される」状況を、実時刻に依存せず再現するためのテスト用の値であり、
+  // 実運用のPOST_RECOVERY_WINDOW_HOURS(バグ実証時は5時間)の大きさ自体が本質ではない。
+  const toleranceHours = 30;
+  const pastNow = new Date(Date.now() - 26 * 60 * 60 * 1000); // 26時間前 = 実行時刻とは必ず異なるJST暦日
+
+  const { deps } = buildStatefulMockDeps();
+
+  // resolveCurrentSlotが解決した「本来の予定時刻」を使う(実運用でCLIの--auto-slotが渡す値と同じ形)
+  const resolved = resolveCurrentSlot(pastNow, toleranceHours);
+  assert.ok(resolved);
+
+  let publishCallCount = 0;
+  const publish: PublishFn = async () => {
+    publishCallCount++;
+    return {
+      posted: true,
+      detail: "投稿成功",
+      tweetIds: [`tweet-${publishCallCount}`],
+      // 予定時刻(scheduledAt)の5分後に投稿完了(同じJST暦日内)
+      postedAt: new Date(new Date(resolved!.scheduledAt).getTime() + 5 * 60 * 1000).toISOString(),
+    };
+  };
+
+  // 1回目: 予定枠として実行・投稿完了
+  const firstRun = await runPostingPipeline({
+    writeHistory: true,
+    publish,
+    deps,
+    slot: resolved!.slot,
+    scheduledAt: resolved!.scheduledAt,
+    recoveryWindowHours: toleranceHours,
+  });
+  assert.equal(firstRun.success, true);
+  assert.equal(publishCallCount, 1);
+
+  // 2回目: 深夜跨ぎのルックバックにより、リトライ時もresolveCurrentSlotが同じ「前日の枠」の
+  // scheduledAtを再解決したケースを模す(実運用ではポーリング/リトライで再度auto-slot解決される)。
+  const secondRun = await runPostingPipeline({
+    writeHistory: true,
+    publish,
+    deps,
+    slot: resolved!.slot,
+    scheduledAt: resolved!.scheduledAt,
+    recoveryWindowHours: toleranceHours,
+  });
+
+  // 冪等性判定がscheduledAt(=前日)の暦日を基準にするため、前日分の投稿履歴を見つけてスキップする。
+  // (修正前は実行時点の実際の暦日を使っていたため、前日分の履歴を見つけられずここで二重投稿していた)
+  assert.equal(secondRun.success, false);
+  assert.equal(secondRun.stage, "skipped");
+  assert.equal(secondRun.skipReason, "already-posted");
+  // publishは再度呼ばれていない(二重投稿されていない)
+  assert.equal(publishCallCount, 1);
 });
 
 test("本番投稿を模したpublish関数に差し替えても、収集〜分割までの結果は同一(差異はpublish結果のみ)", async () => {

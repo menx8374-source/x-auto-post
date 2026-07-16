@@ -16,6 +16,7 @@ import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
 import { runPostingPipeline } from "./pipeline.js";
 import { xApiPublish } from "./xPublish.js";
+import { resolveCurrentSlot } from "./postSchedule.js";
 
 /** CLIから直接実行された場合のみ、リポジトリ直下の.env(存在すれば)をprocess.envへ読み込む */
 function loadDotEnvIfPresent(): void {
@@ -36,10 +37,45 @@ async function main() {
   loadDotEnvIfPresent();
   const args = process.argv.slice(2);
   const injectDecoy = args.includes("--inject-decoy");
-  // F9: 投稿枠(Sprint8で朝/昼/夜の実値がcron連携から渡されるようになるまでは任意の文字列)。
-  // 指定すると同一枠・同一日の二重投稿防止と、不発リカバリの許容範囲チェックが有効になる。
-  const slot = readArgValue(args, "--slot");
-  const scheduledAt = readArgValue(args, "--scheduled-at");
+  // F9: 投稿枠。指定すると同一枠・同一日の二重投稿防止と、不発リカバリの許容範囲チェックが有効になる。
+  let slot = readArgValue(args, "--slot");
+  let scheduledAt = readArgValue(args, "--scheduled-at");
+
+  // F7: --auto-slot 指定時は --slot/--scheduled-at を手動指定する代わりに、現在時刻(または
+  // --now で注入したテスト用時刻)からどの投稿枠(朝/昼/夜)に該当するかを自動判定する。
+  // 外部cronサービス(Sprint 9)からはこのフラグで起動する想定。
+  const autoSlot = args.includes("--auto-slot");
+  if (autoSlot) {
+    const nowRaw = readArgValue(args, "--now");
+    const now = nowRaw ? new Date(nowRaw) : new Date();
+    const resolved = resolveCurrentSlot(now);
+    if (!resolved) {
+      log.info("auto-slot: no scheduled slot (morning/noon/evening) is currently active; nothing to do", {
+        now: now.toISOString(),
+      });
+      const outDir = path.join(process.cwd(), "data", "output");
+      await mkdir(outDir, { recursive: true });
+      await writeFile(
+        path.join(outDir, "latest-publish.json"),
+        JSON.stringify(
+          {
+            ranAt: new Date().toISOString(),
+            success: false,
+            stage: "skipped",
+            skipReason: "no-active-slot",
+            error: "現在時刻はどの投稿枠(朝/昼/夜)の実行タイミングでもありません",
+          },
+          null,
+          2
+        ),
+        "utf-8"
+      );
+      return;
+    }
+    slot = resolved.slot;
+    scheduledAt = resolved.scheduledAt;
+    log.info(`auto-slot resolved to "${resolved.label}" (${resolved.slot})`, { scheduledAt });
+  }
 
   log.info("running live posting pipeline (collect -> select -> generate -> thread -> post to X)", { slot, scheduledAt });
 
