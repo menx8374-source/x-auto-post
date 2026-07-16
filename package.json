@@ -8,6 +8,7 @@
     "collect": "tsx src/collectNews.ts",
     "select": "tsx src/selectPost.ts",
     "generate": "tsx src/generatePost.ts",
+    "thread": "tsx src/buildThread.ts",
     "test": "node --import tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },

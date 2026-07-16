@@ -28,6 +28,10 @@ npm run select -- --from-cache --dry
 # 選定記事に対応する日本語の投稿文面をClaude(Anthropic API)で生成する
 npm run generate
 
+# F4/F5: 直近の npm run generate の出力(data/output/latest-post.json)から、
+# 文字数上限厳守・スレッド分割・元記事リンクツイート付与済みの投稿予定ツイート配列を作る(Xへは投稿しない)
+npm run thread
+
 # テスト実行
 npm test
 
@@ -40,6 +44,8 @@ npm run typecheck
 `npm run select` を実行すると、候補リストから「過去に投稿(選定)済みのURL・実質同一記事・スコアしきい値未満」を除外した上で最高スコアの1件を選定し、タイトル・URL・スコア・選定理由をログに出力する。選定結果は `data/output/latest-selection.json` に保存され、選定した記事は `data/history/post-history.json`(記事URL・タイトル・スコア・選定日時を記録。既出判定に使う実行時の状態ファイルのためgit管理対象外)に追記される。有効な候補が1件もない場合は投稿せず、理由付きで `[WARN]` ログに残す(Xへの投稿はSprint 6以降で実装)。
 
 `npm run generate` を実行すると、`data/output/latest-selection.json` の選定記事をもとに、Claude(Anthropic API)で日本語の投稿文面を1つ生成し、コンソールに表示した上で `data/output/latest-post.json` に保存する(`{ success: true, text, candidate }` または失敗時 `{ success: false, error, candidate }`)。`ANTHROPIC_API_KEY` が未設定、またはAPI呼び出しが失敗した場合や生成結果がタイトルの丸写しに近い/空/長すぎる等の検証に通らない場合は、投稿処理には進まず `success: false` としてエラーを記録し、プロセスは終了コード1で終わる(壊れた/空の投稿をしない)。
+
+`npm run thread` を実行すると、`data/output/latest-post.json` の生成済み本文を、Xの文字数計算方式(半角1・全角2換算、URLはt.co固定重み23換算、上限280)で判定し、上限内なら単一ツイート・超過するなら文/読点/単語単位の意味のまとまりを保った区切りで複数ツイート(各ツイートに `(1/3)` 等の順序表記付き、最大 `MAX_BODY_TWEETS`(6)本まで。超える場合は末尾を省略記号で丸める)に分割し、末尾に元記事URLを含むリンクツイートを1件追加した「投稿予定のツイート配列」をコンソールに表示した上で `data/output/latest-thread.json` に保存する。このスプリントではXへの実投稿は行わない(Sprint 6で実装予定)。`npm run generate` が未実行/失敗している場合は `[WARN]` を出し、終了コード1で安全に終わる。
 
 ## 環境変数
 
