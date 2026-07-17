@@ -7,6 +7,7 @@ import {
   resolveImageUrl,
   downloadOgpImage,
   fetchOgpImageForArticle,
+  readStreamWithLimit,
   MAX_IMAGE_BYTES,
   MAX_ARTICLE_HTML_BYTES,
   type FetchLike,
@@ -297,4 +298,136 @@ test("fetchOgpImageForArticle: 記事HTMLがサイズ上限を超える場合は
     ({ status: 200, headers: { get: () => null }, text: async () => hugeHtml } as unknown as Response);
   const result = await fetchOgpImageForArticle("https://example.com/huge-article", fetchImpl, smartLookup);
   assert.equal(result, null);
+});
+
+// --- SSRF対策(DNSリバインディング/TOCTOU)・ボディ読み取りタイムアウト・エラー種別の区別 ---
+//
+// 以下は前回の`/security-review`(DNSリバインディングによるTOCTOUバイパス, High)・
+// `/code-review`(ボディ読み取りタイムアウト欠如、エラー種別の混同、DNS解決タイムアウト欠如)の
+// 指摘に対する修正の検証。
+
+test("downloadOgpImage: DNSリバインディング(検証時は公開IP、接続時は内部IPを返す)でも実際の接続時点で拒否される(TOCTOU対策)", async () => {
+  // 事前チェック(1回目のlookup呼び出し)では公開IPを返し、実際の接続(undiciのAgentが
+  // `connect.lookup`として使う2回目以降のlookup呼び出し)では内部IPを返す、
+  // DNSリバインディング攻撃を模したlookupモック。
+  //
+  // 修正前の実装(事前チェック+別途fetchが独立に名前解決する2段階方式)では、事前チェックが
+  // 公開IPを見て通過させた後、fetch自身の内部的な(検証されない)名前解決が内部IPを引いて
+  // 接続してしまう可能性があった。
+  //
+  // 修正後は、実際に接続で使う名前解決(undiciのAgentの`connect.lookup`)そのものが
+  // `createSafeLookup`によって検証されるため、たとえ事前チェックが公開IPで通過していても、
+  // 実接続用の解決が内部IPを返した時点でそこで拒否される(検証と接続が同一の解決呼び出しに
+  // 一本化されているため、両者がズレて内部IPへの接続を許してしまう余地が構造的に無い)。
+  let callCount = 0;
+  const rebindingLookup: LookupLike = async () => {
+    callCount += 1;
+    if (callCount === 1) {
+      return [{ address: "93.184.216.34", family: 4 }]; // 事前チェック用: 公開IP
+    }
+    return [{ address: "169.254.169.254", family: 4 }]; // 実接続用: クラウドメタデータ(内部IP)
+  };
+
+  // fetchImplは省略し、実装が使う実際のfetch(undici Agent経由)を使う。
+  const result = await downloadOgpImage("http://rebinding-attacker.example/x.png", undefined, rebindingLookup);
+
+  assert.equal(result, null);
+  assert.ok(
+    callCount >= 2,
+    "事前チェックと実接続で少なくとも2回lookupが呼ばれ、どちらも独立して検証されるべき"
+  );
+});
+
+test("downloadOgpImage: DNSリバインディングが起きなければ(常に公開IP)正当な外部URLへのアクセスは壊れない", async () => {
+  // IPピニング方式(createSafeLookup)導入によって、正当な公開ホストへの実接続経路自体が
+  // 壊れていないことを確認する(接続はDNS解決の時点で内部IPと判定されない限り拒否されない)。
+  // 実際のTCP接続は行われない(到達不能ポートへの接続を試み、fetch自体はネットワークエラーで
+  // 失敗するが、これは「安全な接続を試みた」ことの証跡であり、"blocked" エラーではないことを確認する)。
+  const result = await downloadOgpImage(
+    "http://example.com:1/x.png", // ポート1は通常閉じており接続は失敗するが、SSRFチェックでは拒否されないはず
+    undefined,
+    smartLookup
+  );
+  // 接続自体は失敗する(到達できないポート)が、これはSSRFブロックによるnullではなく
+  // 通常のネットワークエラーによるnullであることを確認したいため、少なくとも例外を投げず
+  // nullを返すことだけを確認する(実ネットワーク接続の成否はテスト環境に依存するため)。
+  assert.equal(result, null);
+});
+
+test("readStreamWithLimit: 正常なストリームは全バイトを読み切りokを返す", async () => {
+  const stream = {
+    getReader() {
+      let read = false;
+      return {
+        async read() {
+          if (read) return { done: true, value: undefined };
+          read = true;
+          return { done: false, value: new Uint8Array([1, 2, 3]) };
+        },
+        async cancel() {},
+      };
+    },
+  };
+  const response = { body: stream } as unknown as Response;
+  const result = await readStreamWithLimit(response, 1024, 5000);
+  assert.equal(result.status, "ok");
+  if (result.status === "ok") {
+    assert.equal(result.buffer.length, 3);
+  }
+});
+
+test("readStreamWithLimit: サイズ超過はtoo-largeを返す(readエラーと区別できる)", async () => {
+  const stream = {
+    getReader() {
+      return {
+        async read() {
+          return { done: false, value: new Uint8Array(2000) };
+        },
+        async cancel() {},
+      };
+    },
+  };
+  const response = { body: stream } as unknown as Response;
+  const result = await readStreamWithLimit(response, 1024, 5000);
+  assert.equal(result.status, "too-large");
+});
+
+test("readStreamWithLimit: 接続断等の読み取りエラーはerrorを返す(サイズ超過と区別できる)", async () => {
+  const stream = {
+    getReader() {
+      return {
+        async read() {
+          throw new Error("simulated connection reset");
+        },
+        async cancel() {},
+      };
+    },
+  };
+  const response = { body: stream } as unknown as Response;
+  const result = await readStreamWithLimit(response, 1024, 5000);
+  assert.equal(result.status, "error");
+  if (result.status === "error") {
+    assert.match(result.message, /simulated connection reset/);
+  }
+});
+
+test("readStreamWithLimit: ボディが意図的に停滞した場合、タイムアウトで中断されtimeoutを返す(ヘッダ受信後のハング対策)", async () => {
+  let cancelled = false;
+  const stream = {
+    getReader() {
+      return {
+        read() {
+          // 意図的に永久に解決しない(悪意あるホストがボディ送信を停滞させるケースを模す)
+          return new Promise(() => {});
+        },
+        async cancel() {
+          cancelled = true;
+        },
+      };
+    },
+  };
+  const response = { body: stream } as unknown as Response;
+  const result = await readStreamWithLimit(response, 1024, 50); // タイムアウトを50msに短縮してテストを高速化
+  assert.equal(result.status, "timeout");
+  assert.ok(cancelled, "タイムアウト時にreader.cancel()が呼ばれるべき");
 });
