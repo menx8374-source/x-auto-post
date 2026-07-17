@@ -478,3 +478,40 @@ test("OGP画像: 取得処理が想定外の例外を投げても、パイプラ
   assert.equal(result.success, true);
   assert.equal(result.ogpImageUrl, undefined);
 });
+
+test("OGP画像: 選定フェーズ(select)が既にOGP画像を取得している場合、それを再利用しdeps.fetchOgpImageは呼ばれない(二重フェッチ回避)", async () => {
+  const c = candidate({ url: "https://example.com/gpt6", title: "OpenAI releases GPT-6" });
+  const selectionOgpImage = {
+    url: "https://example.com/gpt6-selected-ogp.png",
+    buffer: Buffer.from("fake-image-bytes-from-selection"),
+    contentType: "image/png",
+  };
+
+  let fetchOgpImageCallCount = 0;
+  const { deps } = buildMockDeps({
+    select: () => ({
+      selected: c,
+      ogpImage: selectionOgpImage,
+      reason: "テスト用: 選定時に既にOGP画像を取得済み",
+      consideredCount: 1,
+      excludedAsDuplicateCount: 0,
+      excludedByThresholdCount: 0,
+    }),
+    fetchOgpImage: async () => {
+      fetchOgpImageCallCount++;
+      return { url: "https://should-not-be-fetched.example.com/ogp.png", buffer: Buffer.from("x"), contentType: "image/png" };
+    },
+  });
+
+  let receivedOgpImageUrl: string | null | undefined;
+  const publish: PublishFn = async (tweets, publishCandidate, ogpImage) => {
+    receivedOgpImageUrl = ogpImage?.url;
+    return { posted: true, detail: "投稿成功", tweetIds: ["tweet-1"], postedAt: new Date().toISOString() };
+  };
+
+  const result = await runPostingPipeline({ writeHistory: false, publish, deps });
+
+  assert.equal(fetchOgpImageCallCount, 0, "選定時に取得済みのOGP画像があるため、後段でのfetchOgpImage呼び出しは発生しないべき");
+  assert.equal(result.ogpImageUrl, selectionOgpImage.url);
+  assert.equal(receivedOgpImageUrl, selectionOgpImage.url);
+});

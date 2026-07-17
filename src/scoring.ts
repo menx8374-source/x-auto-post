@@ -118,6 +118,7 @@ export function scoreCandidates(
       url: c.url,
       source: c.source,
       publishedAt: c.publishedAt,
+      language: c.language,
       score: Math.round(finalScore * 100) / 100,
       scoreBreakdown: {
         freshness: Math.round(freshnessScores[i] * 100) / 100,

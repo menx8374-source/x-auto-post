@@ -43,6 +43,7 @@ function buildFetcher(subreddit: string): SourceFetcher {
             : c.data.url,
           source: `Reddit r/${subreddit}`,
           publishedAt: new Date(c.data.created_utc * 1000).toISOString(),
+          language: "en",
           engagementRaw: (c.data.score ?? 0) + (c.data.num_comments ?? 0) * 2,
         }));
     },

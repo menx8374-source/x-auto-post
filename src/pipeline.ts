@@ -69,10 +69,21 @@ export const dryRunPublish: PublishFn = async (tweets, candidate, ogpImage) => {
 export interface PipelineDependencies {
   collect: (opts: { injectDecoy?: boolean }) => Promise<{ scored: NewsCandidate[] }>;
   loadHistory: () => Promise<PostHistoryEntry[]>;
-  select: (candidates: NewsCandidate[], history: PostHistoryEntry[]) => SelectionResult;
+  /**
+   * F2/OGP必須化: 選定はOGP画像が実際に取得できることを条件に含むためI/Oを伴う(非同期)。
+   * 選定できた場合、選定時に取得したOGP画像(SelectionResult.ogpImage)を後段で再利用する。
+   */
+  select: (
+    candidates: NewsCandidate[],
+    history: PostHistoryEntry[]
+  ) => SelectionResult | Promise<SelectionResult>;
   generate: (candidate: NewsCandidate) => Promise<PostGenerationResult>;
   buildThread: (text: string, url: string) => ThreadTweet[];
-  /** 選定記事のURLからOGP画像を取得する。取得できない場合はnullを返す(例外を投げない) */
+  /**
+   * 選定記事のURLからOGP画像を取得する。取得できない場合はnullを返す(例外を投げない)。
+   * 通常は選定フェーズ(select)で既にOGP画像を取得済みのため、これは選定側が
+   * OGP画像を返さなかった場合のみのフォールバックとして呼ばれる(二重フェッチ回避)。
+   */
   fetchOgpImage: (url: string) => Promise<OgpImage | null>;
   appendHistory: (entry: Omit<PostHistoryEntry, "normalizedUrl" | "id">) => Promise<PostHistoryEntry>;
   /** F9: 投稿完了後、選定時に書き込んだ履歴エントリへ実際の投稿結果を反映する */
@@ -226,7 +237,7 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
   // F10: 実行ログに候補件数を残す。
   log.info("candidates collected for this run", { candidateCount: scored.length });
 
-  const selection = deps.select(scored, history);
+  const selection = await deps.select(scored, history);
 
   if (!selection.selected) {
     log.warn("pipeline stopped: no eligible candidate to post", { reason: selection.reason });
@@ -264,19 +275,23 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
 
   const tweets = deps.buildThread(generation.text, selection.selected.url);
 
-  // OGP画像取得は失敗を許容する(通信失敗・画像なし・検証失敗のいずれも投稿処理をブロックしない)。
+  // 選定フェーズ(select)がOGP画像必須で選定しているため、通常はここで既に取得済み(二重フェッチ回避)。
+  // deps.select側がogpImageを返さない(未対応のテスト用モック等の)場合のみ、ここでフォールバック取得する。
+  // OGP画像取得自体は失敗を許容する(通信失敗・画像なし・検証失敗のいずれも投稿処理をブロックしない)。
   // deps.fetchOgpImageは自身の内部で失敗をnullとして返す設計だが、想定外の例外が飛んできた場合の
   // 安全網としてここでもcatchしておく。
-  let ogpImage: OgpImage | null = null;
-  try {
-    ogpImage = await deps.fetchOgpImage(selection.selected.url);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    log.warn("unexpected error while fetching ogp image; continuing without image", {
-      url: selection.selected.url,
-      message,
-    });
-    ogpImage = null;
+  let ogpImage: OgpImage | null = selection.ogpImage ?? null;
+  if (!ogpImage) {
+    try {
+      ogpImage = await deps.fetchOgpImage(selection.selected.url);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.warn("unexpected error while fetching ogp image; continuing without image", {
+        url: selection.selected.url,
+        message,
+      });
+      ogpImage = null;
+    }
   }
   log.info(
     ogpImage ? "ogp image available for this post" : "no ogp image available for this post; continuing without image",

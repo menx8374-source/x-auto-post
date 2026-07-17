@@ -41,6 +41,7 @@ export const hackerNewsSource: SourceFetcher = {
         url: hit.url ?? `https://news.ycombinator.com/item?id=${hit.objectID}`,
         source: "Hacker News",
         publishedAt: new Date(hit.created_at).toISOString(),
+        language: "en",
         engagementRaw: (hit.points ?? 0) + (hit.num_comments ?? 0) * 2,
       }));
   },

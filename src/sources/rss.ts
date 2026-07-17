@@ -8,19 +8,38 @@ const parser = new Parser({ timeout: 10000 });
 interface RssFeedDef {
   name: string;
   url: string;
+  language: "ja" | "en";
 }
 
 // 認証不要で公開されているAI関連RSSフィード。
 // エンゲージメント指標(いいね数等)は持たないため、buzzはクラスタリングによる
 // 複数ソース言及数(mentionCount)側で評価する。
+//
+// 日本語ソースは、実際にHTTP取得してRSSとして正しくパースできること・
+// AI関連カテゴリ(サイト全体の総合フィードではない)であることを確認した上で採用している
+// (2026-07-18時点で動作確認済み。候補として検討したが不採用にしたもの: Impress Watch/
+// ASCII.jp/ZDNET Japan/CNET JapanはAI専用カテゴリのRSSフィードが見つからず、
+// ledge.ai・robotstart・aismiley・weelはフィード自体が存在しない/空だった)。
 const FEEDS: RssFeedDef[] = [
-  { name: "TechCrunch AI", url: "https://techcrunch.com/category/artificial-intelligence/feed/" },
-  { name: "VentureBeat AI", url: "https://venturebeat.com/category/ai/feed/" },
-  { name: "The Verge AI", url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml" },
+  { name: "TechCrunch AI", url: "https://techcrunch.com/category/artificial-intelligence/feed/", language: "en" },
+  { name: "VentureBeat AI", url: "https://venturebeat.com/category/ai/feed/", language: "en" },
+  {
+    name: "The Verge AI",
+    url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
+    language: "en",
+  },
   {
     name: "Google News (AI)",
     url: "https://news.google.com/rss/search?q=%22artificial+intelligence%22+OR+%22generative+AI%22+when:2d&hl=en-US&gl=US&ceid=US:en",
+    language: "en",
   },
+  {
+    name: "ITmedia AI+",
+    url: "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml",
+    language: "ja",
+  },
+  { name: "AINOW", url: "https://ainow.ai/feed/", language: "ja" },
+  { name: "AIDB", url: "https://ai-data-base.com/feed", language: "ja" },
 ];
 
 /**
@@ -68,6 +87,7 @@ function buildFetcher(def: RssFeedDef): SourceFetcher {
             publishedAt,
             publishedAtUnknown,
             summary: item.contentSnippet,
+            language: def.language,
           };
         });
     },
