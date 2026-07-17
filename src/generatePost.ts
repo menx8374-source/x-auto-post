@@ -27,7 +27,7 @@ import type { NewsCandidate } from "./types.js";
 export const GENERATION_STYLE = getGenerationStyle();
 
 /** 使用するClaudeモデル。環境変数で上書き可能(モデルIDの陳腐化・利用者の選好に対応するため) */
-export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-3-5-haiku-20241022";
+export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 
 /** 生成に使う最大出力トークン数(短い投稿文面のため小さめに設定) */
 export const MAX_OUTPUT_TOKENS = 400;
