@@ -13,5 +13,20 @@
       "2078095107174088951",
       "2078095108281421910"
     ]
+  },
+  {
+    "url": "https://stateofopensource.ai/",
+    "title": "Mozilla: The state of open source AI",
+    "score": 97.5,
+    "selectedAt": "2026-07-17T14:55:47.534Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "7d7750b0-1596-46d9-bd27-e7ecf7898b72",
+    "normalizedUrl": "https://stateofopensource.ai",
+    "postedAt": "2026-07-17T14:55:48.048Z",
+    "tweetIds": [
+      "2078131557026476146",
+      "2078131557961716062"
+    ]
   }
 ]
