@@ -13,11 +13,12 @@
  * - X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_SECRET が未設定の場合は、
  *   API呼び出し自体を行わず安全にエラーとして終了する。
  */
-import { TwitterApi, ApiResponseError } from "twitter-api-v2";
+import { TwitterApi, ApiResponseError, type SendTweetV2Params } from "twitter-api-v2";
 import { log } from "./logger.js";
 import type { PublishFn, PublishResult } from "./pipeline.js";
 import type { ThreadTweet } from "./threadSplit.js";
 import type { NewsCandidate } from "./types.js";
+import type { OgpImage } from "./ogpImage.js";
 
 /** postTweet失敗時に投げられるエラー。レート制限判定に必要な情報だけを保持する最小限の形 */
 export class XApiError extends Error {
@@ -40,8 +41,16 @@ export class XApiError extends Error {
  * 「正しい順序・返信連結で呼ばれるか」「途中失敗・レート制限時の挙動」を検証する。
  */
 export interface XPostClient {
-  /** 1件ツイートを投稿する。replyToTweetId指定時はそのツイートへの返信として投稿する(スレッド連結) */
-  postTweet: (text: string, replyToTweetId?: string) => Promise<{ id: string }>;
+  /**
+   * 1件ツイートを投稿する。replyToTweetId指定時はそのツイートへの返信として投稿する(スレッド連結)。
+   * mediaIds指定時は、そのツイートにメディア(画像)を添付する。
+   */
+  postTweet: (text: string, replyToTweetId?: string, mediaIds?: string[]) => Promise<{ id: string }>;
+  /**
+   * OGP画像をアップロードし、投稿に添付できるmedia_idを返す(F: OGP画像添付)。
+   * テスト用モックでは省略可能(未定義の場合、呼び出し側は画像添付をスキップする)。
+   */
+  uploadMedia?: (image: OgpImage) => Promise<string>;
 }
 
 /** 環境変数からX API認証情報を読み込みクライアントを構築する。いずれか未設定ならnullを返す(呼び出し側でエラー扱い) */
@@ -59,11 +68,16 @@ export function createXClient(): XPostClient | null {
   const v2 = client.readWrite.v2;
 
   return {
-    postTweet: async (text, replyToTweetId) => {
+    postTweet: async (text, replyToTweetId, mediaIds) => {
       try {
-        const res = replyToTweetId
-          ? await v2.tweet(text, { reply: { in_reply_to_tweet_id: replyToTweetId } })
-          : await v2.tweet(text);
+        const options: Partial<SendTweetV2Params> = {};
+        if (replyToTweetId) {
+          options.reply = { in_reply_to_tweet_id: replyToTweetId };
+        }
+        if (mediaIds && mediaIds.length > 0) {
+          options.media = { media_ids: [mediaIds[0]] };
+        }
+        const res = await v2.tweet(text, options);
         return { id: res.data.id };
       } catch (err) {
         if (err instanceof ApiResponseError) {
@@ -74,6 +88,9 @@ export function createXClient(): XPostClient | null {
         }
         throw err;
       }
+    },
+    uploadMedia: async (image) => {
+      return client.v1.uploadMedia(image.buffer, { mimeType: image.contentType });
     },
   };
 }
@@ -113,12 +130,13 @@ async function postWithRateLimitRetry(
   replyToTweetId: string | undefined,
   tweetIndex: number,
   policy: RateLimitRetryPolicy,
-  sleep: SleepFn
+  sleep: SleepFn,
+  mediaIds?: string[]
 ): Promise<{ id: string }> {
   let attempt = 0;
   for (;;) {
     try {
-      return await client.postTweet(text, replyToTweetId);
+      return await client.postTweet(text, replyToTweetId, mediaIds);
     } catch (err) {
       const isRateLimit = err instanceof XApiError && err.status === 429;
       if (!isRateLimit) {
@@ -156,7 +174,7 @@ export function createXApiPublish(
   retryPolicy: RateLimitRetryPolicy = DEFAULT_RATE_LIMIT_RETRY_POLICY,
   sleep: SleepFn = defaultSleep
 ): PublishFn {
-  return async (tweets: ThreadTweet[], candidate: NewsCandidate): Promise<PublishResult> => {
+  return async (tweets: ThreadTweet[], candidate: NewsCandidate, ogpImage?: OgpImage | null): Promise<PublishResult> => {
     if (!client) {
       const error =
         "X API認証情報(X_API_KEY/X_API_SECRET/X_ACCESS_TOKEN/X_ACCESS_SECRET)が未設定のため投稿できません";
@@ -164,11 +182,40 @@ export function createXApiPublish(
       return { posted: false, detail: error, tweetIds: [], error };
     }
 
+    // OGP画像は、投稿失敗が全体をブロックしないよう、事前に一度だけアップロードしてmedia_idを得ておく。
+    // アップロード自体に失敗しても(client.uploadMedia未定義・API呼び出し失敗いずれも)、画像なしで
+    // スレッド投稿を継続する(ブロッキングしない)。
+    let mediaId: string | undefined;
+    if (ogpImage) {
+      if (!client.uploadMedia) {
+        log.warn("x client does not support media upload; posting thread without image attachment", {
+          url: candidate.url,
+        });
+      } else {
+        try {
+          mediaId = await client.uploadMedia(ogpImage);
+          log.info("uploaded ogp image to X", { url: candidate.url, imageUrl: ogpImage.url });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          log.warn("failed to upload ogp image to X; posting thread without image attachment", {
+            url: candidate.url,
+            imageUrl: ogpImage.url,
+            message,
+          });
+        }
+      }
+    }
+
+    // 添付先は「スレッド1件目の本文ツイート」(kind:"body")。リンクツイートが先頭に来る設定
+    // (POST_LINK_TWEET_POSITION=start)の場合でも、末尾のリンクツイートには添付しない。
+    const firstBodyTweet = tweets.find((t) => t.kind === "body");
+
     const postedIds: string[] = [];
     let previousTweetId: string | undefined;
 
     for (const tweet of tweets) {
       const replyToTweetId = previousTweetId;
+      const mediaIds = mediaId && tweet === firstBodyTweet ? [mediaId] : undefined;
       try {
         const posted = await postWithRateLimitRetry(
           client,
@@ -176,7 +223,8 @@ export function createXApiPublish(
           replyToTweetId,
           tweet.index,
           retryPolicy,
-          sleep
+          sleep,
+          mediaIds
         );
         postedIds.push(posted.id);
         previousTweetId = posted.id;

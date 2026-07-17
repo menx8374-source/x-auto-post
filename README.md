@@ -105,6 +105,15 @@ npm run typecheck
 
 `npm run post` を実行すると、`npm run dryrun` と同じパイプラインで、最後に実際にX API v2(`twitter-api-v2`)へスレッドを投稿する(`src/xPublish.ts`)。1件目を投稿後、2件目以降は直前のツイートIDへの返信(`in_reply_to_tweet_id`)として投稿し、1本のスレッドとして連結する。途中のツイート投稿が失敗した場合、そこまでの投稿済みツイートID・失敗箇所を記録して以降の投稿は行わない。X APIのレート制限(HTTP 429)を検知した場合は既定で最大2回・待機上限60秒の範囲でのみリトライし、それを超える場合は諦めて理由を記録する(無制限リトライ・連投回避策は行わない)。全件投稿成功時は投稿したツイートID群と投稿完了時刻を記録する。結果は `data/output/latest-publish.json` に保存される。`X_API_KEY`/`X_API_SECRET`/`X_ACCESS_TOKEN`/`X_ACCESS_SECRET` のいずれかが未設定の場合はAPIを呼び出さず安全にエラーとして終了する。
 
+### 元記事のOGP画像添付
+
+共通パイプライン(`src/pipeline.ts`)は、分割・リンク付与の後・投稿の前に `src/ogpImage.ts` を使って選定記事のURLからOGP画像(`<meta property="og:image">` 等)を取得する。取得できた場合、`npm run post` はスレッド**1件目(本文ツイート)にのみ**画像を添付する(twitter-api-v2の `client.v1.uploadMedia()` でアップロードし、`media_ids` として付与)。末尾のリンクツイートには添付しない。
+
+- 画像URLはダウンロード前にスキームが `http:`/`https:` のみであることを検証し、それ以外(`javascript:`/`file:`等)は拒否する。
+- ダウンロード時はContent-Typeが `image/*` であることと、サイズが上限(5MB)以内であることを確認する。
+- 記事にog:imageが無い・HTML取得やダウンロードに失敗・検証に失敗・X側へのアップロードに失敗、のいずれの場合も画像なしで投稿処理を継続する(既存のソース通信失敗時と同じ「失敗を許容し処理継続」の方針)。
+- `npm run dryrun` は実際にXへは投稿しないが、OGP画像の取得・ダウンロードは本番と同じ処理を通るため、取得できた場合はプレビューに画像URLが表示される(`data/output/latest-dryrun.json` の `ogpImageUrl` にも記録)。
+
 ### F8: 外部cronサービスからのトリガー連携(GitHub Actions workflow_dispatch)
 
 GitHub Actionsの`schedule`(cron)トリガーは実行遅延・不発が多いため、**主経路は cron-job.org 等の外部無料cronサービスから GitHub Actions の `workflow_dispatch` REST APIエンドポイントを定時に叩く方式**にする。

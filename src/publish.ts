@@ -174,6 +174,7 @@ async function main() {
         selectionReason: result.selectionReason,
         text: result.text,
         tweets: result.tweets,
+        ogpImageUrl: result.ogpImageUrl,
         historyWritten: result.historyWritten,
         publishResult,
       },

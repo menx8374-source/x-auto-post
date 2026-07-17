@@ -14,6 +14,7 @@ import { selectNextPost, type SelectionResult } from "./selectPost.js";
 import { generatePostText, type PostGenerationResult } from "./generatePost.js";
 import { composeThread, type ThreadTweet } from "./threadSplit.js";
 import { assertValidConfig, getMaxBodyTweets, getLinkTweetConfig } from "./config.js";
+import { fetchOgpImageForArticle, type OgpImage } from "./ogpImage.js";
 import {
   loadHistory,
   appendHistoryEntry,
@@ -25,10 +26,15 @@ import {
 } from "./postHistory.js";
 import type { NewsCandidate, PostHistoryEntry } from "./types.js";
 
-/** 投稿予定ツイート配列を実際に送信する(または送信しない)役目を持つ関数。本番/ドライランの唯一の差し替え点 */
+/**
+ * 投稿予定ツイート配列を実際に送信する(または送信しない)役目を持つ関数。本番/ドライランの唯一の差し替え点。
+ * `ogpImage`(取得できた場合のみ)はスレッド1件目の本文ツイートに添付するために渡す。取得できなかった
+ * 場合は`null`が渡り、実装側は画像なしで投稿処理を継続する(ブロッキングしない)。
+ */
 export type PublishFn = (
   tweets: ThreadTweet[],
-  candidate: NewsCandidate
+  candidate: NewsCandidate,
+  ogpImage?: OgpImage | null
 ) => Promise<PublishResult>;
 
 export interface PublishResult {
@@ -47,8 +53,12 @@ export interface PublishResult {
 }
 
 /** ドライラン用のpublish実装: 何も送信せず、送信しなかった旨だけを返す */
-export const dryRunPublish: PublishFn = async (tweets, candidate) => {
-  log.info("dry run: not sending tweets to X", { tweetCount: tweets.length, url: candidate.url });
+export const dryRunPublish: PublishFn = async (tweets, candidate, ogpImage) => {
+  log.info("dry run: not sending tweets to X", {
+    tweetCount: tweets.length,
+    url: candidate.url,
+    ogpImageUrl: ogpImage?.url,
+  });
   return { posted: false, detail: "ドライランのためXへは送信していません" };
 };
 
@@ -62,6 +72,8 @@ export interface PipelineDependencies {
   select: (candidates: NewsCandidate[], history: PostHistoryEntry[]) => SelectionResult;
   generate: (candidate: NewsCandidate) => Promise<PostGenerationResult>;
   buildThread: (text: string, url: string) => ThreadTweet[];
+  /** 選定記事のURLからOGP画像を取得する。取得できない場合はnullを返す(例外を投げない) */
+  fetchOgpImage: (url: string) => Promise<OgpImage | null>;
   appendHistory: (entry: Omit<PostHistoryEntry, "normalizedUrl" | "id">) => Promise<PostHistoryEntry>;
   /** F9: 投稿完了後、選定時に書き込んだ履歴エントリへ実際の投稿結果を反映する */
   updateHistory: (id: string, updates: PostHistoryUpdate) => Promise<PostHistoryEntry | null>;
@@ -87,6 +99,7 @@ const defaultDeps: PipelineDependencies = {
   select: (candidates, history) => selectNextPost(candidates, history),
   generate: (candidate) => generatePostText(candidate),
   buildThread: buildThreadWithConfig,
+  fetchOgpImage: (url) => fetchOgpImageForArticle(url),
   appendHistory: (entry) => appendHistoryEntry(entry),
   updateHistory: (id, updates) => updateHistoryEntry(id, updates),
 };
@@ -106,6 +119,8 @@ export interface PipelineResult {
   consideredCount?: number;
   text?: string;
   tweets?: ThreadTweet[];
+  /** 取得できたOGP画像のURL(プレビュー・ログ用途。画像本体は結果に含めない)。取得できなかった場合は未設定 */
+  ogpImageUrl?: string;
   /** 投稿履歴(既出判定用)に書き込んだかどうか */
   historyWritten: boolean;
   publishResult?: PublishResult;
@@ -249,6 +264,25 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
 
   const tweets = deps.buildThread(generation.text, selection.selected.url);
 
+  // OGP画像取得は失敗を許容する(通信失敗・画像なし・検証失敗のいずれも投稿処理をブロックしない)。
+  // deps.fetchOgpImageは自身の内部で失敗をnullとして返す設計だが、想定外の例外が飛んできた場合の
+  // 安全網としてここでもcatchしておく。
+  let ogpImage: OgpImage | null = null;
+  try {
+    ogpImage = await deps.fetchOgpImage(selection.selected.url);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.warn("unexpected error while fetching ogp image; continuing without image", {
+      url: selection.selected.url,
+      message,
+    });
+    ogpImage = null;
+  }
+  log.info(
+    ogpImage ? "ogp image available for this post" : "no ogp image available for this post; continuing without image",
+    { url: selection.selected.url, imageUrl: ogpImage?.url }
+  );
+
   let historyWritten = false;
   let historyEntryId: string | undefined;
   if (options.writeHistory) {
@@ -265,7 +299,7 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
     log.info("not recording selection into post history (writeHistory=false)");
   }
 
-  const publishResult = await options.publish(tweets, selection.selected);
+  const publishResult = await options.publish(tweets, selection.selected, ogpImage);
 
   // F10: 実行ログに投稿結果(成功/失敗/未送信)を残す。1回の実行につき必ず1行、結論だけが分かる形で出す。
   if (publishResult.posted) {
@@ -314,6 +348,7 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
     consideredCount: selection.consideredCount,
     text: generation.text,
     tweets,
+    ogpImageUrl: ogpImage?.url,
     historyWritten,
     publishResult,
   };
