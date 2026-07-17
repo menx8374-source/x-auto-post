@@ -15,6 +15,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { log } from "./logger.js";
 import { extractKeywords, jaccardSimilarity } from "./scoring.js";
 import { getGenerationStyle } from "./config.js";
+import {
+  getAccountProfile,
+  getGenerationStyleForAccount,
+  resolveCredentialEnvVarName,
+  type AccountProfile,
+} from "./accounts.js";
 import type { NewsCandidate } from "./types.js";
 
 /**
@@ -44,11 +50,15 @@ export interface GenerationPrompt {
 }
 
 /** 選定記事から、Claudeへ渡すsystem/userプロンプトを組み立てる純粋関数(テスト容易性のため分離) */
-export function buildGenerationPrompt(candidate: NewsCandidate): GenerationPrompt {
+export function buildGenerationPrompt(
+  candidate: NewsCandidate,
+  account: AccountProfile = getAccountProfile()
+): GenerationPrompt {
   // F12: 呼び出しのたびに設定を読み直すことで、.envのPOST_LANGUAGE/POST_TONEの変更を反映する。
-  const style = getGenerationStyle();
+  // アカウント指定時(デフォルトアカウント以外)はアカウントプロファイルの固定値を使う(後方互換)。
+  const style = getGenerationStyleForAccount(account);
   const system = [
-    "あなたはAIニュースを紹介するXアカウントの編集者です。",
+    `あなたは${account.genre}を紹介するXアカウントの編集者です。`,
     "「バズる(注目を集め、拡散・リプライ・引用したくなる)」投稿文面を作ることが目標ですが、",
     "そのために事実を誇張したり歪めたりはしません。バズらせるのは「切り口」と「見せ方」であって、事実の正確性ではありません。",
     "以下の制約を厳守して投稿文面を作成してください。",
@@ -56,9 +66,13 @@ export function buildGenerationPrompt(candidate: NewsCandidate): GenerationPromp
     `- トーン: ${style.tone}`,
     "- 書き出しの1文で読み手の目を引く(具体的な数字・意外な事実・「なぜ」「どうやって」を想起させる問いかけ等のフックを使う)。ただし記事に書かれていない数字や事実を創作しない。",
     "- 「なぜそれが重要か・何が変わるか」が伝わるよう、単なる事実列挙ではなく読み手にとっての意味を一言添える。",
-    "- 文末はリプライ・引用・共有したくなる一文(問いかけ、意外性の強調、余韻を残す言い切り等)で締める。ただし「いいねお願いします」等の直接的な行動喚起はしない。",
+    "- 【エンゲージメント設計・最重要】文末は、読み手が思わずリプライしたくなる一文で締める。具体的には次のいずれかの型を、記事内容に応じて自然に選ぶ: " +
+      "(a) 記事の内容に即した具体的な問いかけ(「あなたはどう思う?」のような抽象的・機械的な定型文ではなく、その記事固有の論点に踏み込んだ問い)、" +
+      "(b) 賛否が分かれそうな軽い意見・所感の表明(断定しすぎず、読み手が反論・共感したくなる余地を残す)、" +
+      "(c) あえて結論を言い切らず、読み手の解釈・予測に委ねる余韻の残し方。" +
+      "同じ形の問いかけを毎回機械的に繰り返さない(語尾・構文を記事ごとに変える)。ただし「いいねお願いします」「フォローしてね」等の直接的な行動喚起はしない。",
     "- 記事タイトルをそのまま書き写さず、要点(何が・どう新しいか)を要約・言い換えて伝える。",
-    "- 与えられた記事情報(タイトル・概要)に書かれていない事実を付け加えたり、断定的な誇張・憶測をしない(バズらせるための「切り口の工夫」と「事実の捏造」は明確に別物)。",
+    "- 与えられた記事情報(タイトル・概要)に書かれていない事実を付け加えたり、断定的な誇張・憶測をしない(バズらせるための「切り口の工夫」と「事実の捏造」は明確に別物)。エンゲージメントを狙う意見表明・問いかけも、事実に基づかない誇張や煽りにしない。",
     "- 個別の投資助言(売買を推奨する等)、健康/美容/医療の断定的な効果効能は書かない。",
     "- 前置きや挨拶、説明文、引用符での囲みは書かず、投稿本文のみを出力する。ハッシュタグの羅列も付けない。",
   ].join("\n");
@@ -139,9 +153,13 @@ export interface AnthropicMessageClient {
   };
 }
 
-/** 環境変数ANTHROPIC_API_KEYからクライアントを構築する。未設定ならnullを返す(呼び出し側でエラー扱い) */
-export function createAnthropicClient(): AnthropicMessageClient | null {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+/**
+ * 環境変数(ANTHROPIC_API_KEY、アカウント指定時はサフィックス付き変数)からクライアントを構築する。
+ * 未設定ならnullを返す(呼び出し側でエラー扱い)。account省略時はデフォルトアカウント(サフィックス無し、
+ * 既存のANTHROPIC_API_KEYをそのまま使う=後方互換)。
+ */
+export function createAnthropicClient(account: AccountProfile = getAccountProfile()): AnthropicMessageClient | null {
+  const apiKey = process.env[resolveCredentialEnvVarName("ANTHROPIC_API_KEY", account)];
   if (!apiKey) {
     return null;
   }
@@ -156,22 +174,28 @@ export type PostGenerationResult =
  * 選定記事から投稿本文を生成する。
  * APIキー未設定・API呼び出し失敗・生成結果が検証を通らない場合は、いずれもsuccess:falseで返す
  * (例外は投げない。呼び出し側がこの結果を見て「投稿せず安全に終了する」判断をするため)。
+ *
+ * `client`を省略(undefined)した場合のみ`account`に応じたクライアントを自動構築する。
+ * `client`に明示的に`null`を渡した場合(テスト等でAPIキー未設定を模する場合)はそのまま使う。
  */
 export async function generatePostText(
   candidate: NewsCandidate,
-  client: AnthropicMessageClient | null = createAnthropicClient()
+  client?: AnthropicMessageClient | null,
+  account: AccountProfile = getAccountProfile()
 ): Promise<PostGenerationResult> {
-  if (!client) {
-    const error = "ANTHROPIC_API_KEY が未設定のため投稿文面を生成できません";
-    log.error(error, { url: candidate.url });
+  const resolvedClient = client === undefined ? createAnthropicClient(account) : client;
+  if (!resolvedClient) {
+    const envVarName = resolveCredentialEnvVarName("ANTHROPIC_API_KEY", account);
+    const error = `${envVarName} が未設定のため投稿文面を生成できません`;
+    log.error(error, { url: candidate.url, accountId: account.id });
     return { success: false, error, candidate };
   }
 
-  const prompt = buildGenerationPrompt(candidate);
+  const prompt = buildGenerationPrompt(candidate, account);
 
   let message: Anthropic.Message;
   try {
-    message = await client.messages.create({
+    message = await resolvedClient.messages.create({
       model: DEFAULT_MODEL,
       max_tokens: MAX_OUTPUT_TOKENS,
       system: prompt.system,

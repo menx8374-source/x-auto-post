@@ -3,17 +3,12 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
-import { filterAiRelated } from "./aiFilter.js";
 import { scoreCandidates, type ScorableCandidate } from "./scoring.js";
 import type { SourceFetcher } from "./types.js";
-import { hackerNewsSource } from "./sources/hackerNews.js";
-import { redditSources } from "./sources/reddit.js";
-import { rssSources } from "./sources/rss.js";
 import { normalizeUrl } from "./urlUtil.js";
+import { getAccountProfile, type AccountProfile } from "./accounts.js";
 
 const MIN_CANDIDATES = 10;
-
-const ALL_SOURCES: SourceFetcher[] = [hackerNewsSource, ...redditSources, ...rssSources];
 
 /** 検証用: 意図的に「古く話題も伸びていない」記事を候補に混ぜる(--inject-decoy 時のみ) */
 function buildDecoyCandidate(): ScorableCandidate {
@@ -27,16 +22,16 @@ function buildDecoyCandidate(): ScorableCandidate {
   };
 }
 
-async function collectAllCandidates(): Promise<{
+async function collectAllCandidates(sources: SourceFetcher[]): Promise<{
   candidates: ScorableCandidate[];
   failedSources: { source: string; error: string }[];
 }> {
-  const results = await Promise.allSettled(ALL_SOURCES.map((s) => s.fetch()));
+  const results = await Promise.allSettled(sources.map((s) => s.fetch()));
   const candidates: ScorableCandidate[] = [];
   const failedSources: { source: string; error: string }[] = [];
 
   results.forEach((result, i) => {
-    const sourceName = ALL_SOURCES[i].name;
+    const sourceName = sources[i].name;
     if (result.status === "fulfilled") {
       log.info(`source ok: ${sourceName} (${result.value.length} items)`);
       candidates.push(...result.value);
@@ -62,21 +57,25 @@ function dedupeByUrl(candidates: ScorableCandidate[]): ScorableCandidate[] {
   return [...seen.values()];
 }
 
-export async function collectAndScoreNews(options: { injectDecoy?: boolean } = {}) {
+export async function collectAndScoreNews(
+  options: { injectDecoy?: boolean; account?: AccountProfile } = {}
+) {
+  const account = options.account ?? getAccountProfile();
   log.info("collecting AI news candidates from sources", {
-    sourceCount: ALL_SOURCES.length,
+    sourceCount: account.sources.length,
+    accountId: account.id,
   });
 
-  const { candidates: rawCandidates, failedSources } = await collectAllCandidates();
+  const { candidates: rawCandidates, failedSources } = await collectAllCandidates(account.sources);
   const deduped = dedupeByUrl(rawCandidates);
-  const aiOnly = filterAiRelated(deduped);
+  const filtered = account.filterCandidates(deduped);
 
   if (options.injectDecoy) {
-    aiOnly.push(buildDecoyCandidate());
+    filtered.push(buildDecoyCandidate());
     log.info("injected decoy candidate for demo verification");
   }
 
-  const scored = scoreCandidates(aiOnly);
+  const scored = scoreCandidates(filtered);
 
   if (scored.length < MIN_CANDIDATES) {
     log.warn(

@@ -28,6 +28,11 @@ on:
         options:
           - post
           - dryrun
+      account:
+        description: "複数アカウント対応: 使用するアカウントID(src/accounts.tsに登録済みのもの)。省略時は既存のデフォルトアカウント"
+        type: string
+        required: false
+        default: "ai-news"
 
   # バックアップ用途のみ(主経路ではない)。
   # GitHub Actionsのscheduleトリガーは実行遅延・不発が起こりうるため、通常運用は
@@ -91,10 +96,19 @@ jobs:
           # 必ずenv:経由の環境変数として受け渡し、シェル側でcase文により許可リスト検証する。
           SLOT_INPUT: ${{ inputs.slot }}
           MODE_INPUT: ${{ inputs.mode }}
+          # 複数アカウント対応: SLOT_INPUT/MODE_INPUTと同様、env:経由で渡しシェル側で許可リスト検証する。
+          ACCOUNT_INPUT: ${{ inputs.account }}
         run: |
           set -e
           SLOT="${SLOT_INPUT:-auto}"
           MODE="${MODE_INPUT:-post}"
+          # workflow_dispatchのinputs.accountはtype:stringのためGitHub Web UIでも任意の文字列を
+          # 送信できてしまう(choiceのような選択肢制限が効かない)。REST API経由(cron-job.org)は
+          # 元々どのtypeでも任意の文字列を送れるため、他のinput同様にcase文で許可リスト検証する。
+          # ACCOUNT_INPUT未設定(既存のcron-job.orgジョブ等、accountパラメータを送らない呼び出し)は
+          # workflow_dispatchのinputs.accountのdefault("ai-news")が使われるため、"${ACCOUNT_INPUT:-ai-news}"
+          # の既定値と合わせて既存の後方互換を保証する。
+          ACCOUNT="${ACCOUNT_INPUT:-ai-news}"
 
           case "$SLOT" in
             auto|morning|noon|evening) ;;
@@ -112,15 +126,28 @@ jobs:
               ;;
           esac
 
+          # 現在src/accounts.tsに登録済みのアカウントIDのみ許可する(既定のデフォルトアカウントのみ)。
+          # 新規アカウントをsrc/accounts.tsに追加する場合、対応するサフィックス付きGitHub Secretsを
+          # 上記env:に追加した上で、ここにも分岐を追加すること(手順はdocs/cron-setup.md参照)。
+          # デフォルトアカウント(ai-news)は既存のサフィックス無しSecrets(上記env:のANTHROPIC_API_KEY等)を
+          # そのまま使うため、ここでは検証のみ行い環境変数の再割り当ては不要。
+          case "$ACCOUNT" in
+            ai-news) ;;
+            *)
+              echo "invalid account input: $ACCOUNT" >&2
+              exit 1
+              ;;
+          esac
+
           NPM_SCRIPT="post"
           if [ "$MODE" = "dryrun" ]; then
             NPM_SCRIPT="dryrun"
           fi
-          echo "slot=$SLOT mode=$MODE npmScript=$NPM_SCRIPT"
+          echo "slot=$SLOT mode=$MODE account=$ACCOUNT npmScript=$NPM_SCRIPT"
           if [ "$SLOT" = "auto" ]; then
-            npm run "$NPM_SCRIPT" -- --auto-slot
+            npm run "$NPM_SCRIPT" -- --auto-slot --account="$ACCOUNT"
           else
-            npm run "$NPM_SCRIPT" -- --slot="$SLOT"
+            npm run "$NPM_SCRIPT" -- --slot="$SLOT" --account="$ACCOUNT"
           fi
 
       # F10: 実行結果(成功/失敗/スキップ)をGitHub Actionsのジョブサマリーに残す。
@@ -145,6 +172,7 @@ jobs:
               const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
               summary += '- 実行日時: ' + (data.ranAt ?? '不明') + '\n';
               summary += '- モード: ' + process.env.MODE + '\n';
+              if (data.accountId) summary += '- アカウント: ' + data.accountId + '\n';
               summary += '- 成功: ' + data.success + '\n';
               if (data.stage) summary += '- 停止段階: ' + data.stage + '\n';
               if (data.skipReason) summary += '- スキップ理由: ' + data.skipReason + '\n';
@@ -160,18 +188,21 @@ jobs:
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
           "
 
-      # F8/F9: 投稿履歴(data/history/post-history.json)はGitHub Actionsの実行ごとに使い捨てられる
+      # F8/F9: 投稿履歴(data/history/post-history.json、複数アカウント対応後はアカウントごとに
+      # data/history/post-history-<id>.json も追加されうる)はGitHub Actionsの実行ごとに使い捨てられる
       # チェックアウトの中でしか更新されないため、コミット・プッシュしてリポジトリへ永続化しない限り、
       # 次回実行(次のGitHub Actions呼び出し)が冪等性判定(同一枠・同一日の二重投稿防止)を行えない。
       # そのためこのステップは、投稿処理が途中で失敗した場合(!cancelled())でも実行し、
       # 「選定はしたが投稿できなかった」履歴だけでも必ず保存する。
+      # data/history/ 配下を丸ごとaddすることで、新規アカウント追加時にワークフロー側の変更なしに
+      # そのアカウント専用の履歴ファイルもコミット対象になる。
       - name: Commit updated post history
         if: ${{ !cancelled() }}
         run: |
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/history/post-history.json
+          git add data/history/
           if git diff --cached --quiet; then
             echo "no history changes to commit"
           else

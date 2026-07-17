@@ -19,6 +19,7 @@ import type { PublishFn, PublishResult } from "./pipeline.js";
 import type { ThreadTweet } from "./threadSplit.js";
 import type { NewsCandidate } from "./types.js";
 import type { OgpImage } from "./ogpImage.js";
+import { getAccountProfile, resolveCredentialEnvVarName, type AccountProfile } from "./accounts.js";
 
 /** postTweet失敗時に投げられるエラー。レート制限判定に必要な情報だけを保持する最小限の形 */
 export class XApiError extends Error {
@@ -53,12 +54,15 @@ export interface XPostClient {
   uploadMedia?: (image: OgpImage) => Promise<string>;
 }
 
-/** 環境変数からX API認証情報を読み込みクライアントを構築する。いずれか未設定ならnullを返す(呼び出し側でエラー扱い) */
-export function createXClient(): XPostClient | null {
-  const appKey = process.env.X_API_KEY;
-  const appSecret = process.env.X_API_SECRET;
-  const accessToken = process.env.X_ACCESS_TOKEN;
-  const accessSecret = process.env.X_ACCESS_SECRET;
+/**
+ * 環境変数からX API認証情報を読み込みクライアントを構築する。いずれか未設定ならnullを返す(呼び出し側でエラー扱い)。
+ * account省略時はデフォルトアカウント(サフィックス無し、既存のX_API_KEY等をそのまま使う=後方互換)。
+ */
+export function createXClient(account: AccountProfile = getAccountProfile()): XPostClient | null {
+  const appKey = process.env[resolveCredentialEnvVarName("X_API_KEY", account)];
+  const appSecret = process.env[resolveCredentialEnvVarName("X_API_SECRET", account)];
+  const accessToken = process.env[resolveCredentialEnvVarName("X_ACCESS_TOKEN", account)];
+  const accessSecret = process.env[resolveCredentialEnvVarName("X_ACCESS_SECRET", account)];
 
   if (!appKey || !appSecret || !accessToken || !accessSecret) {
     return null;
@@ -265,5 +269,17 @@ export function createXApiPublish(
   };
 }
 
-/** 既定の環境変数・リトライ方針を使う本番投稿用のPublishFn */
+/** 既定の環境変数(デフォルトアカウント)・リトライ方針を使う本番投稿用のPublishFn(後方互換のため維持) */
 export const xApiPublish: PublishFn = createXApiPublish();
+
+/**
+ * 指定したアカウントの認証情報(credentialsEnvSuffixに応じたX_API_KEY等)でクライアントを構築し、
+ * 本番投稿用のPublishFnを組み立てる。account省略時はデフォルトアカウント(xApiPublishと同じ挙動)。
+ */
+export function createXApiPublishForAccount(
+  account: AccountProfile = getAccountProfile(),
+  retryPolicy: RateLimitRetryPolicy = DEFAULT_RATE_LIMIT_RETRY_POLICY,
+  sleep: SleepFn = defaultSleep
+): PublishFn {
+  return createXApiPublish(createXClient(account), retryPolicy, sleep);
+}

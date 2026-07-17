@@ -15,6 +15,7 @@ import { log } from "./logger.js";
 import { runPostingPipeline, dryRunPublish } from "./pipeline.js";
 import { TWEET_CHAR_LIMIT } from "./tweetLength.js";
 import { resolveCurrentSlot } from "./postSchedule.js";
+import { getAccountProfile } from "./accounts.js";
 import type { ThreadTweet } from "./threadSplit.js";
 
 /** CLIから直接実行された場合のみ、リポジトリ直下の.env(存在すれば)をprocess.envへ読み込む */
@@ -49,6 +50,9 @@ async function main() {
   const injectDecoy = args.includes("--inject-decoy");
   // ドライランは既定で投稿履歴(既出判定用)を汚さない。明示的に指定した場合のみ書き込む。
   const writeHistory = args.includes("--write-history");
+  // 複数アカウント対応: 省略時はデフォルトアカウント(既存のAIニュースアカウント)を使う(後方互換)。
+  // 未登録のidが指定された場合はここで例外を投げ、わかりやすいエラーとして終了する。
+  const account = getAccountProfile(readArgValue(args, "--account"));
   // F9: 冪等性・不発リカバリの許容範囲チェックをドライランでも確認できるようにする(任意)
   let slot = readArgValue(args, "--slot");
   let scheduledAt = readArgValue(args, "--scheduled-at");
@@ -90,6 +94,7 @@ async function main() {
   }
 
   log.info("running dry run pipeline (collect -> select -> generate -> thread, no posting to X)", {
+    accountId: account.id,
     writeHistory,
     slot,
     scheduledAt,
@@ -101,6 +106,7 @@ async function main() {
     publish: dryRunPublish,
     slot,
     scheduledAt,
+    accountId: account.id,
   });
 
   const outDir = path.join(process.cwd(), "data", "output");
@@ -116,6 +122,7 @@ async function main() {
           ranAt: new Date().toISOString(),
           dryRun: true,
           success: false,
+          accountId: result.accountId,
           stage: result.stage,
           skipReason: result.skipReason,
           error: result.error,
@@ -129,6 +136,7 @@ async function main() {
     return;
   }
 
+  console.log(`アカウント: ${account.label} (${result.accountId})`);
   console.log(`選定記事: ${result.candidate?.title} (${result.candidate?.url})`);
   console.log(`選定理由: ${result.selectionReason}`);
   console.log("");
@@ -153,6 +161,7 @@ async function main() {
         ranAt: new Date().toISOString(),
         dryRun: true,
         success: true,
+        accountId: result.accountId,
         candidate: result.candidate,
         selectionReason: result.selectionReason,
         text: result.text,

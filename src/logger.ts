@@ -12,15 +12,27 @@ function timestamp(): string {
   return new Date().toISOString();
 }
 
-/** ログに実値が出力されてはならない認証情報系の環境変数名 */
-const SENSITIVE_ENV_VARS = ["ANTHROPIC_API_KEY", "X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET"];
+/**
+ * ログに実値が出力されてはならない認証情報系の環境変数のベース名。
+ * 複数アカウント対応(src/accounts.ts)により、新規アカウントは`<ベース名>__<サフィックス>`
+ * (例: X_API_KEY__SUB2)という名前の環境変数を使うため、ベース名との完全一致だけでなく
+ * `<ベース名>__`で始まる変数名もすべて対象にする({@link isSensitiveEnvVarName}参照)。
+ * accounts.tsを直接importしない(config.ts経由の循環import回避、かつ将来アカウントが
+ * 増減しても常に実際にprocess.envへ設定されている変数だけを対象にできるため)。
+ */
+const SENSITIVE_ENV_VAR_BASE_NAMES = ["ANTHROPIC_API_KEY", "X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET"];
 
 const MASK = "***MASKED***";
+
+function isSensitiveEnvVarName(name: string): boolean {
+  return SENSITIVE_ENV_VAR_BASE_NAMES.some((base) => name === base || name.startsWith(`${base}__`));
+}
 
 /** 文字列中に現在設定されている認証情報の実値が含まれていれば置換する。短すぎる値(誤爆防止)は対象外 */
 function maskString(value: string): string {
   let masked = value;
-  for (const key of SENSITIVE_ENV_VARS) {
+  for (const key of Object.keys(process.env)) {
+    if (!isSensitiveEnvVarName(key)) continue;
     const secret = process.env[key];
     if (secret && secret.trim().length >= 4 && masked.includes(secret)) {
       masked = masked.split(secret).join(MASK);

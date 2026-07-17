@@ -15,6 +15,7 @@ import { generatePostText, type PostGenerationResult } from "./generatePost.js";
 import { composeThread, type ThreadTweet } from "./threadSplit.js";
 import { assertValidConfig, getMaxBodyTweets, getLinkTweetConfig } from "./config.js";
 import { fetchOgpImageForArticle, type OgpImage } from "./ogpImage.js";
+import { getAccountProfile, type AccountProfile } from "./accounts.js";
 import {
   loadHistory,
   appendHistoryEntry,
@@ -104,16 +105,24 @@ export function buildThreadWithConfig(text: string, url: string): ThreadTweet[] 
   });
 }
 
-const defaultDeps: PipelineDependencies = {
-  collect: (opts) => collectAndScoreNews(opts),
-  loadHistory: () => loadHistory(),
-  select: (candidates, history) => selectNextPost(candidates, history),
-  generate: (candidate) => generatePostText(candidate),
-  buildThread: buildThreadWithConfig,
-  fetchOgpImage: (url) => fetchOgpImageForArticle(url),
-  appendHistory: (entry) => appendHistoryEntry(entry),
-  updateHistory: (id, updates) => updateHistoryEntry(id, updates),
-};
+/**
+ * 複数アカウント対応: 実I/Oを使う既定の依存一式を、指定したアカウントプロファイルに束縛して組み立てる。
+ * アカウントの情報源・言語/トーン・認証情報環境変数名・履歴ファイルパスがここで一箇所に反映される。
+ * account省略時はデフォルトアカウント(既存の情報源・POST_LANGUAGE/POST_TONE・サフィックス無しの
+ * 認証情報・data/history/post-history.json)を使い、Sprint 1〜10までの挙動と完全に一致する(後方互換)。
+ */
+function buildDefaultDeps(account: AccountProfile): PipelineDependencies {
+  return {
+    collect: (opts) => collectAndScoreNews({ ...opts, account }),
+    loadHistory: () => loadHistory(account.historyFilePath),
+    select: (candidates, history) => selectNextPost(candidates, history),
+    generate: (candidate) => generatePostText(candidate, undefined, account),
+    buildThread: buildThreadWithConfig,
+    fetchOgpImage: (url) => fetchOgpImageForArticle(url),
+    appendHistory: (entry) => appendHistoryEntry(entry, account.historyFilePath),
+    updateHistory: (id, updates) => updateHistoryEntry(id, updates, account.historyFilePath),
+  };
+}
 
 export type PipelineStage = "select" | "generate" | "thread" | "publish" | "skipped" | "done";
 
@@ -135,6 +144,8 @@ export interface PipelineResult {
   /** 投稿履歴(既出判定用)に書き込んだかどうか */
   historyWritten: boolean;
   publishResult?: PublishResult;
+  /** 実際に使用したアカウントID(省略指定時に解決されたデフォルトアカウントも含む。ログ・出力確認用) */
+  accountId: string;
 }
 
 export interface RunPipelineOptions {
@@ -164,6 +175,11 @@ export interface RunPipelineOptions {
   /** F9: 不発リカバリの許容範囲(時間)。省略時はpostHistory.DEFAULT_RECOVERY_WINDOW_HOURS(環境変数上書き可)を使う */
   recoveryWindowHours?: number;
   /**
+   * 複数アカウント対応: 使用するアカウントのid(src/accounts.tsに登録済みのもの)。
+   * 省略時はデフォルトアカウント(既存のAIニュースアカウント)を使う(後方互換)。
+   */
+  accountId?: string;
+  /**
    * テスト用: 「現在時刻」を注入する。省略時は`new Date()`(実際の壁時計時刻)を使う。
    * F9の不発リカバリ判定(isWithinRecoveryWindow)はこの時刻を基準にするため、テストでこれを
    * 固定すれば実行タイミングに依存しない決定論的なテストが書ける(Sprint 10で
@@ -178,15 +194,21 @@ export interface RunPipelineOptions {
  * 唯一の差異は最後に呼ばれる `options.publish` が実際にXへ送信するかどうかだけ。
  */
 export async function runPostingPipeline(options: RunPipelineOptions): Promise<PipelineResult> {
+  // 複数アカウント対応: accountId省略時はデフォルトアカウント(既存のAIニュースアカウント)を使う(後方互換)。
+  // 未登録のaccountIdが指定された場合はここで例外を投げ、呼び出し側のCLIエントリポイントが
+  // 未catchの例外として受け取りエラー終了する。
+  const account = getAccountProfile(options.accountId);
+
   // F12: 挙動系設定の不正値(未設定の必須項目・不正な時刻形式など)を実行の最初に検知する。
   // 壊れた設定のまま収集・生成・投稿処理へ進めない(呼び出し側のCLIエントリポイントは
   // 未catchの例外としてこれを受け取り、わかりやすいエラーとしてログに残しexitCode=1で終了する)。
   assertValidConfig();
 
-  const deps = { ...defaultDeps, ...options.deps };
+  const deps = { ...buildDefaultDeps(account), ...options.deps };
 
   // F10: 各実行の開始をログに残す(実行ログ)。
   log.info("posting pipeline started", {
+    accountId: account.id,
     slot: options.slot,
     scheduledAt: options.scheduledAt,
     writeHistory: options.writeHistory,
@@ -209,7 +231,14 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
     if (hasPostedSlotOnDate(history, options.slot, referenceDate)) {
       const reason = `本日「${options.slot}」枠は既に投稿済みのためスキップします(1枠1投稿の冪等性)`;
       log.warn("pipeline stopped: slot already posted today (idempotency)", { slot: options.slot });
-      return { success: false, stage: "skipped", skipReason: "already-posted", error: reason, historyWritten: false };
+      return {
+        success: false,
+        stage: "skipped",
+        skipReason: "already-posted",
+        error: reason,
+        historyWritten: false,
+        accountId: account.id,
+      };
     }
 
     if (options.scheduledAt) {
@@ -228,6 +257,7 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
           skipReason: "outside-recovery-window",
           error: reason,
           historyWritten: false,
+          accountId: account.id,
         };
       }
     }
@@ -247,6 +277,7 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
       error: selection.reason,
       consideredCount: selection.consideredCount,
       historyWritten: false,
+      accountId: account.id,
     };
   }
 
@@ -270,6 +301,7 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
       selectionReason: selection.reason,
       consideredCount: selection.consideredCount,
       historyWritten: false,
+      accountId: account.id,
     };
   }
 
@@ -366,5 +398,6 @@ export async function runPostingPipeline(options: RunPipelineOptions): Promise<P
     ogpImageUrl: ogpImage?.url,
     historyWritten,
     publishResult,
+    accountId: account.id,
   };
 }

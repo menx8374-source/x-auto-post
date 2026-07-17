@@ -15,9 +15,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
 import { runPostingPipeline } from "./pipeline.js";
-import { xApiPublish } from "./xPublish.js";
+import { createXApiPublishForAccount } from "./xPublish.js";
 import { resolveCurrentSlot } from "./postSchedule.js";
 import { notify } from "./notify.js";
+import { getAccountProfile } from "./accounts.js";
 
 /** CLIから直接実行された場合のみ、リポジトリ直下の.env(存在すれば)をprocess.envへ読み込む */
 function loadDotEnvIfPresent(): void {
@@ -38,6 +39,9 @@ async function main() {
   loadDotEnvIfPresent();
   const args = process.argv.slice(2);
   const injectDecoy = args.includes("--inject-decoy");
+  // 複数アカウント対応: 省略時はデフォルトアカウント(既存のAIニュースアカウント)を使う(後方互換)。
+  // 未登録のidが指定された場合はここで例外を投げ、わかりやすいエラーとして終了する。
+  const account = getAccountProfile(readArgValue(args, "--account"));
   // F9: 投稿枠。指定すると同一枠・同一日の二重投稿防止と、不発リカバリの許容範囲チェックが有効になる。
   let slot = readArgValue(args, "--slot");
   let scheduledAt = readArgValue(args, "--scheduled-at");
@@ -78,15 +82,20 @@ async function main() {
     log.info(`auto-slot resolved to "${resolved.label}" (${resolved.slot})`, { scheduledAt });
   }
 
-  log.info("running live posting pipeline (collect -> select -> generate -> thread -> post to X)", { slot, scheduledAt });
+  log.info("running live posting pipeline (collect -> select -> generate -> thread -> post to X)", {
+    accountId: account.id,
+    slot,
+    scheduledAt,
+  });
 
   const result = await runPostingPipeline({
     injectDecoy,
     // 本番投稿では既出判定を汚さないため、選定確定後に必ず投稿履歴へ記録する
     writeHistory: true,
-    publish: xApiPublish,
+    publish: createXApiPublishForAccount(account),
     slot,
     scheduledAt,
+    accountId: account.id,
   });
 
   const outDir = path.join(process.cwd(), "data", "output");
@@ -127,6 +136,7 @@ async function main() {
         {
           ranAt: new Date().toISOString(),
           success: false,
+          accountId: result.accountId,
           stage: result.stage,
           skipReason: result.skipReason,
           error: result.error,
@@ -170,6 +180,7 @@ async function main() {
       {
         ranAt: new Date().toISOString(),
         success: true,
+        accountId: result.accountId,
         candidate: result.candidate,
         selectionReason: result.selectionReason,
         text: result.text,
