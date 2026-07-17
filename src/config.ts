@@ -105,25 +105,19 @@ export function getPostSlots(env: NodeJS.ProcessEnv = process.env): PostSlotTime
 }
 
 function parseLanguage(env: NodeJS.ProcessEnv): ParsedField<string> {
-  const raw = env.POST_LANGUAGE;
-  if (raw === undefined) {
+  const raw = env.POST_LANGUAGE?.trim();
+  if (!raw) {
     return { value: DEFAULT_LANGUAGE };
   }
-  if (raw.trim() === "") {
-    return { value: DEFAULT_LANGUAGE, error: "POST_LANGUAGE が空文字です" };
-  }
-  return { value: raw.trim() };
+  return { value: raw };
 }
 
 function parseTone(env: NodeJS.ProcessEnv): ParsedField<string> {
-  const raw = env.POST_TONE;
-  if (raw === undefined) {
+  const raw = env.POST_TONE?.trim();
+  if (!raw) {
     return { value: DEFAULT_TONE };
   }
-  if (raw.trim() === "") {
-    return { value: DEFAULT_TONE, error: "POST_TONE が空文字です" };
-  }
-  return { value: raw.trim() };
+  return { value: raw };
 }
 
 /** F3/F12: 生成する投稿文面の言語・トーンを返す唯一の取得口(`POST_LANGUAGE`/`POST_TONE`で上書き可)。 */
