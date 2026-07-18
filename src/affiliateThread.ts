@@ -8,9 +8,20 @@
 import { calculateTweetLength } from "./tweetLength.js";
 import { splitIntoBodyTweets, MAX_BODY_TWEETS, type ThreadTweet } from "./threadSplit.js";
 
+/**
+ * アフィリエイトリンクURLをツイート本文に埋め込む前に正規化する。
+ * A8.net等のアフィリエイトトラッキングURLはクエリ文字列にリテラルの`+`(RFC3986上は合法)を
+ * 含むことが多いが、X(Twitter)側のツイート内URL検出がこれを正しく解釈できず
+ * 「The Tweet contains an invalid URL」として投稿自体を拒否するケースを実際に確認した。
+ * `+`を`%2B`にパーセントエンコードすることで、URLの意味(遷移先)を変えずにXの検出を回避する。
+ */
+export function normalizeUrlForTweet(url: string): string {
+  return url.replace(/\+/g, "%2B");
+}
+
 /** アフィリエイトリンクを含むリンクツイートの本文を組み立てる */
 export function buildAffiliateLinkTweetText(affiliateUrl: string): string {
-  return `商品ページ: ${affiliateUrl}`;
+  return `商品ページ: ${normalizeUrlForTweet(affiliateUrl)}`;
 }
 
 export interface ComposeAffiliateThreadOptions {
