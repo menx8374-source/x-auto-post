@@ -11,6 +11,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { log } from "./logger.js";
+import { isHttpUrl } from "./ogpImage.js";
 
 export interface AffiliateProduct {
   /** 一意識別子(ローテーション・投稿履歴の紐付けキー) */
@@ -64,7 +65,23 @@ export async function loadAffiliateProducts(
   return parsed as AffiliateProduct[];
 }
 
-/** enabled:trueの商品のみを対象にする */
+/**
+ * enabled:true、かつaffiliateUrlがhttp:/https:の商品のみを対象にする。
+ * src/generateAffiliateRedirects.tsのリダイレクトページ生成も同じ`isHttpUrl`検証で
+ * 不正スキーム(例: `javascript:`)の商品をスキップしており、選定側もここで同じ基準を
+ * 適用することで、「ページは生成されないのに投稿だけされる(=リンク切れのツイートが
+ * 公開される)」不整合を防ぐ。
+ */
 export function filterEnabledProducts(products: AffiliateProduct[]): AffiliateProduct[] {
-  return products.filter((p) => p.enabled === true);
+  return products.filter((p) => {
+    if (p.enabled !== true) return false;
+    if (!isHttpUrl(p.affiliateUrl)) {
+      log.warn("excluded product from selection: affiliateUrl is not http:/https:", {
+        productId: p.id,
+        affiliateUrl: p.affiliateUrl,
+      });
+      return false;
+    }
+    return true;
+  });
 }

@@ -85,3 +85,16 @@ test("filterEnabledProductsはenabled:trueの商品のみを返す", () => {
     ["a", "c"]
   );
 });
+
+test("filterEnabledProductsはenabled:trueでもaffiliateUrlがhttp:/https:以外の商品は除外する(リンク切れ投稿防止)", () => {
+  const products = [
+    product({ id: "a", enabled: true, affiliateUrl: "https://affiliate.example.com/a" }),
+    product({ id: "evil", enabled: true, affiliateUrl: "javascript:alert(1)" }),
+    product({ id: "c", enabled: true, affiliateUrl: "http://affiliate.example.com/c" }),
+  ];
+  const enabled = filterEnabledProducts(products);
+  assert.deepEqual(
+    enabled.map((p) => p.id),
+    ["a", "c"]
+  );
+});
