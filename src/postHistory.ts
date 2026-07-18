@@ -128,7 +128,7 @@ const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
  * (二重投稿・誤スキップの実害が確認されたためSprint 7で修正)。
  * タイムゾーンライブラリは使わず、+9時間シフトしてから日付部分を取り出すのみで十分(夏時間なし)。
  */
-function toDateKey(iso: string): string {
+export function toDateKey(iso: string): string {
   const jstDate = new Date(new Date(iso).getTime() + JST_OFFSET_MS);
   return jstDate.toISOString().slice(0, 10);
 }

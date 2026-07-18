@@ -1,0 +1,166 @@
+name: X アフィリエイト投稿実行(外部cron経由のworkflow_dispatch)
+
+# アフィリエイト投稿(1日1回、既定19:00 JST)専用のワークフロー。既存のAIニュース投稿
+# (.github/workflows/post.yml)とは完全に独立しており、実行内容・投稿履歴ファイル
+# (data/history/affiliate-post-history.json)も別のため、互いのcron起動・冪等性判定に影響しない。
+# 実行内容は `npm run post:affiliate -- --auto-slot`(本番投稿)相当。
+# 手動実行時は mode=dryrun を選べば実際にXへは投稿せず動作確認だけできる。
+#
+# 外部cron側の設定手順は docs/cron-setup.md の既存手順に準じ、アフィリエイト用ジョブを追加する
+# (叩くworkflow名を "X アフィリエイト投稿実行..." に変える以外は同じ手順)。
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "post=実際にXへ投稿する / dryrun=投稿せず動作確認のみ(手動テスト用)"
+        type: choice
+        required: false
+        default: "post"
+        options:
+          - post
+          - dryrun
+      account:
+        description: "複数アカウント対応: 使用するアカウントID(src/accounts.tsに登録済みのもの)。省略時は既存のデフォルトアカウント"
+        type: string
+        required: false
+        default: "ai-news"
+
+  # バックアップ用途のみ(主経路ではない)。post.ymlと同じ理由で、外部cronサービスからの
+  # workflow_dispatchを主経路とし、scheduleはそれが不発だった場合の保険として少し後に追試行する。
+  schedule:
+    - cron: "5 10 * * *" # アフィリエイト枠(19:00 JST)の少し後 = UTC10:05。バックアップ用。
+
+permissions:
+  contents: write
+
+jobs:
+  run-affiliate-posting-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 履歴コミットステップの `git pull --rebase` が並行実行時にも
+          # リモートの新しいコミットを正しく取り込めるよう、シャロークローンにしない。
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run affiliate posting pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          POST_RECOVERY_WINDOW_HOURS: ${{ secrets.POST_RECOVERY_WINDOW_HOURS }}
+          # アフィリエイト投稿専用の運用パラメータ(任意。未設定ならコード側の既定値を使う)
+          AFFILIATE_POST_TIME: ${{ secrets.AFFILIATE_POST_TIME }}
+          AFFILIATE_MAX_POSTS_PER_PRODUCT: ${{ secrets.AFFILIATE_MAX_POSTS_PER_PRODUCT }}
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          # workflow_dispatch の inputs は type: choice で選択肢を制限しているが、この制限は
+          # GitHub Web UIの「Run workflow」フォームでのみ強制され、REST API(外部cron連携の呼び出し経路)
+          # 経由では任意の文字列を送信できてしまう。${{ }} をrun:に直接埋め込むとテンプレート展開が
+          # シェル実行前に行われスクリプトインジェクションの原因になるため、既存のpost.ymlと同じく
+          # 必ずenv:経由の環境変数として受け渡し、シェル側でcase文により許可リスト検証する。
+          MODE_INPUT: ${{ inputs.mode }}
+          ACCOUNT_INPUT: ${{ inputs.account }}
+        run: |
+          set -e
+          MODE="${MODE_INPUT:-post}"
+          ACCOUNT="${ACCOUNT_INPUT:-ai-news}"
+
+          case "$MODE" in
+            post|dryrun) ;;
+            *)
+              echo "invalid mode input: $MODE" >&2
+              exit 1
+              ;;
+          esac
+
+          # 現在src/accounts.tsに登録済みのアカウントIDのみ許可する(既定のデフォルトアカウントのみ)。
+          case "$ACCOUNT" in
+            ai-news) ;;
+            *)
+              echo "invalid account input: $ACCOUNT" >&2
+              exit 1
+              ;;
+          esac
+
+          NPM_SCRIPT="post:affiliate"
+          if [ "$MODE" = "dryrun" ]; then
+            NPM_SCRIPT="dryrun:affiliate"
+          fi
+          echo "mode=$MODE account=$ACCOUNT npmScript=$NPM_SCRIPT"
+          npm run "$NPM_SCRIPT" -- --auto-slot --account="$ACCOUNT"
+
+      # 実行結果(成功/失敗/スキップ)をGitHub Actionsのジョブサマリーに残す(post.ymlと同じ方式)。
+      - name: Write job summary
+        if: ${{ !cancelled() }}
+        env:
+          MODE_INPUT: ${{ inputs.mode }}
+        run: |
+          set -e
+          MODE="${MODE_INPUT:-post}"
+          RESULT_FILE="data/output/latest-affiliate-publish.json"
+          if [ "$MODE" = "dryrun" ]; then
+            RESULT_FILE="data/output/latest-affiliate-dryrun.json"
+          fi
+          RESULT_FILE="$RESULT_FILE" MODE="$MODE" node -e "
+            const fs = require('fs');
+            const file = process.env.RESULT_FILE;
+            let summary = '## Xアフィリエイト投稿パイプライン実行結果\n\n';
+            try {
+              const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
+              summary += '- 実行日時: ' + (data.ranAt ?? '不明') + '\n';
+              summary += '- モード: ' + process.env.MODE + '\n';
+              if (data.accountId) summary += '- アカウント: ' + data.accountId + '\n';
+              summary += '- 成功: ' + data.success + '\n';
+              if (data.stage) summary += '- 停止段階: ' + data.stage + '\n';
+              if (data.skipReason) summary += '- スキップ理由: ' + data.skipReason + '\n';
+              if (data.error) summary += '- エラー: ' + data.error + '\n';
+              if (data.product) summary += '- 選定商品: ' + data.product.name + '\n';
+              if (data.publishResult) {
+                summary += '- 投稿結果: ' + (data.publishResult.posted ? '成功' : '未投稿/失敗') + '\n';
+                summary += '- 詳細: ' + data.publishResult.detail + '\n';
+              }
+            } catch (e) {
+              summary += '結果ファイル(' + file + ')の読み込みに失敗しました: ' + e.message + '\n';
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
+          "
+
+      # data/history/affiliate-post-history.jsonはGitHub Actionsの実行ごとに使い捨てられるチェックアウトの
+      # 中でしか更新されないため、コミット・プッシュしてリポジトリへ永続化しない限り、次回実行が
+      # ローテーション・冪等性判定を行えない(post.ymlと同じ理由)。
+      - name: Commit updated affiliate post history
+        if: ${{ !cancelled() }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/history/
+          if git diff --cached --quiet; then
+            echo "no history changes to commit"
+          else
+            git commit -m "chore: update affiliate post history [skip ci]"
+            attempt=1
+            max_attempts=3
+            until git pull --rebase && git push; do
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                echo "rebase/push failed after ${max_attempts} attempts" >&2
+                exit 1
+              fi
+              echo "rebase/push failed (attempt ${attempt}/${max_attempts}), retrying after fetch..."
+              git fetch origin
+              attempt=$((attempt + 1))
+            done
+          fi

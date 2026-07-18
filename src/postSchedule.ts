@@ -8,7 +8,7 @@
  * よい(Sprint 7でtoDateKeyがUTC基準になっていたことによる日境界バグが見つかった教訓を踏襲)。
  */
 import { DEFAULT_RECOVERY_WINDOW_HOURS, getConfiguredRecoveryWindowHours } from "./postHistory.js";
-import { getPostSlots } from "./config.js";
+import { getPostSlots, getAffiliatePostSlot } from "./config.js";
 
 /** JSTとUTCの固定オフセット(ミリ秒) */
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -110,6 +110,50 @@ export function resolveCurrentSlot(
     label: best.slot.label,
     scheduledAt: best.scheduledAt.toISOString(),
   };
+}
+
+export interface ResolvedAffiliateSlot {
+  /** アフィリエイト投稿枠の識別子(常に"affiliate") */
+  slot: string;
+  /** 枠のラベル */
+  label: string;
+  /** その枠の本来の予定時刻(ISO8601、UTC) */
+  scheduledAt: string;
+}
+
+/**
+ * アフィリエイト投稿枠(既定19:00 JST、1日1枠。AIニュース3枠とは完全に独立)の判定。
+ * `resolveCurrentSlot`と同じJST基準・日境界セーフなロジック(jstDateParts/scheduledAtForJstDate)を
+ * 再利用しつつ、AIニュース枠(POST_SLOTS)とは独立した専用の判定関数として実装する
+ * (両者の投稿履歴ファイルが別なので、冪等性判定も自然に分離される)。
+ */
+export function resolveCurrentAffiliateSlot(
+  now: Date = new Date(),
+  toleranceHours: number = getConfiguredRecoveryWindowHours()
+): ResolvedAffiliateSlot | null {
+  const slot = getAffiliatePostSlot();
+  const todayParts = jstDateParts(now);
+  const yesterdayParts = jstDateParts(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+  const toleranceMs = toleranceHours * 60 * 60 * 1000;
+
+  let best: { scheduledAt: Date; elapsedMs: number } | undefined;
+
+  for (const parts of [todayParts, yesterdayParts]) {
+    const scheduledAt = scheduledAtForJstDate(slot, parts);
+    const elapsedMs = now.getTime() - scheduledAt.getTime();
+    if (elapsedMs < 0 || elapsedMs > toleranceMs) {
+      continue;
+    }
+    if (!best || elapsedMs < best.elapsedMs) {
+      best = { scheduledAt, elapsedMs };
+    }
+  }
+
+  if (!best) {
+    return null;
+  }
+
+  return { slot: slot.id, label: slot.label, scheduledAt: best.scheduledAt.toISOString() };
 }
 
 // re-export for callers that only need the default tolerance without importing postHistory directly

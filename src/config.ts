@@ -211,6 +211,75 @@ export function getRecoveryWindowHours(env: NodeJS.ProcessEnv = process.env): nu
   return value;
 }
 
+// ---- アフィリエイト投稿(AIニュース3枠とは独立した投稿パイプライン)の設定 ----
+
+/** アフィリエイト投稿枠の識別子。AIニュースのSlotId("morning"|"noon"|"evening")とは別の独立した枠 */
+export const AFFILIATE_SLOT_ID = "affiliate";
+export const AFFILIATE_SLOT_LABEL = "アフィリエイト";
+const AFFILIATE_SLOT_ENV_VAR = "AFFILIATE_POST_TIME";
+const AFFILIATE_SLOT_DEFAULT_TIME = "19:00";
+
+export interface AffiliatePostSlotTime {
+  id: string;
+  label: string;
+  hourJst: number;
+  minuteJst: number;
+}
+
+function parseAffiliateSlotTime(env: NodeJS.ProcessEnv): ParsedField<{ hourJst: number; minuteJst: number }> {
+  const fallback = parseTimeString(AFFILIATE_SLOT_DEFAULT_TIME)!;
+  const raw = env[AFFILIATE_SLOT_ENV_VAR];
+  if (!raw) {
+    return { value: fallback };
+  }
+  const parsed = parseTimeString(raw);
+  if (!parsed) {
+    return {
+      value: fallback,
+      error: `${AFFILIATE_SLOT_ENV_VAR} の値 "${raw}" は不正な時刻形式です("HH:MM"、00:00〜23:59で指定してください)`,
+    };
+  }
+  return { value: parsed };
+}
+
+/**
+ * アフィリエイト投稿枠(既定19:00 JST、1日1枠)の目安時刻を返す唯一の取得口。
+ * `AFFILIATE_POST_TIME`環境変数で上書き可。AIニュース3枠(`getPostSlots()`)とは完全に独立している。
+ */
+export function getAffiliatePostSlot(env: NodeJS.ProcessEnv = process.env): AffiliatePostSlotTime {
+  const { value, error } = parseAffiliateSlotTime(env);
+  if (error) {
+    log.warn(`invalid ${AFFILIATE_SLOT_ENV_VAR}; falling back to default (${AFFILIATE_SLOT_DEFAULT_TIME})`, {
+      raw: env[AFFILIATE_SLOT_ENV_VAR],
+    });
+  }
+  return { id: AFFILIATE_SLOT_ID, label: AFFILIATE_SLOT_LABEL, ...value };
+}
+
+export const DEFAULT_AFFILIATE_MAX_POSTS_PER_PRODUCT = 3;
+
+function parseAffiliateMaxPostsPerProduct(env: NodeJS.ProcessEnv): ParsedField<number> {
+  const raw = env.AFFILIATE_MAX_POSTS_PER_PRODUCT;
+  if (!raw) {
+    return { value: DEFAULT_AFFILIATE_MAX_POSTS_PER_PRODUCT };
+  }
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return {
+      value: DEFAULT_AFFILIATE_MAX_POSTS_PER_PRODUCT,
+      error: `AFFILIATE_MAX_POSTS_PER_PRODUCT の値 "${raw}" は不正です(1以上の整数を指定してください)`,
+    };
+  }
+  return { value: parsed };
+}
+
+/** 同一商品の投稿回数の上限(ローテーション)を返す唯一の取得口。`AFFILIATE_MAX_POSTS_PER_PRODUCT`で上書き可(既定3) */
+export function getAffiliateMaxPostsPerProduct(env: NodeJS.ProcessEnv = process.env): number {
+  const { value, error } = parseAffiliateMaxPostsPerProduct(env);
+  if (error) log.warn(error);
+  return value;
+}
+
 /** 認証情報系設定の「設定済みかどうか」だけを返す(実値は一切保持・出力しない) */
 export interface CredentialsStatus {
   anthropicApiKeyConfigured: boolean;
@@ -269,6 +338,12 @@ export function assertValidConfig(env: NodeJS.ProcessEnv = process.env): void {
 
   const recovery = parseRecoveryWindowHours(env);
   if (recovery.error) errors.push(recovery.error);
+
+  const affiliateSlot = parseAffiliateSlotTime(env);
+  if (affiliateSlot.error) errors.push(affiliateSlot.error);
+
+  const affiliateMaxPosts = parseAffiliateMaxPostsPerProduct(env);
+  if (affiliateMaxPosts.error) errors.push(affiliateMaxPosts.error);
 
   const credentials = getCredentialsStatus(env);
   if (credentials.xCredentialsPartiallyConfigured) {

@@ -128,7 +128,12 @@ const defaultSleep: SleepFn = (ms) => new Promise((resolve) => setTimeout(resolv
  * 1件のツイートをレート制限に配慮しつつ投稿する。
  * 429以外のエラー、またはリトライ上限・待機上限を超える429は即座にエラーとして投げる(呼び出し側でtry/catch)。
  */
-async function postWithRateLimitRetry(
+/**
+ * 単一ツイート投稿+レート制限リトライの共通ロジック。
+ * 本番のAIニュース投稿(xApiPublish)専用ではなく、アフィリエイト投稿(src/affiliateXPublish.ts)からも
+ * 再利用する(同じリトライ方針・実装を複製せず一箇所に保つ)。
+ */
+export async function postWithRateLimitRetry(
   client: XPostClient,
   text: string,
   replyToTweetId: string | undefined,

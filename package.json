@@ -11,6 +11,8 @@
     "thread": "tsx src/buildThread.ts",
     "dryrun": "tsx src/dryRun.ts",
     "post": "tsx src/publish.ts",
+    "dryrun:affiliate": "tsx src/dryRunAffiliate.ts",
+    "post:affiliate": "tsx src/publishAffiliate.ts",
     "test": "node --import tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },

@@ -36,6 +36,9 @@ data/output/
 # might land under data/history/ stays ignored.
 data/history/*
 !data/history/post-history.json
+# アフィリエイト投稿専用の投稿履歴(ローテーション・冪等性判定用)。GitHub Actions実行後にワークフローが
+# コミットして永続化するため、post-history.json同様git管理対象にする。
+!data/history/affiliate-post-history.json
 
 # Logs
 *.log
