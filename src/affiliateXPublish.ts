@@ -74,7 +74,7 @@ export function createXApiPublishForAffiliate(
           postedTweetIds: postedIds,
           productId: product.id,
           message,
-          apiErrorDetail,
+          apiErrorDetailJson: apiErrorDetail ? JSON.stringify(apiErrorDetail) : undefined,
         });
         return {
           posted: false,
