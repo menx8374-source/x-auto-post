@@ -1,0 +1,99 @@
+{
+  "generatedAt": "2026-07-18T11:56:28.407Z",
+  "items": [
+    {
+      "title": "Why do AI company logos look like buttholes?",
+      "url": "https://velvetshark.com/ai-company-logos-that-look-like-buttholes",
+      "source": "Hacker News",
+      "score": 79.88
+    },
+    {
+      "title": "What AI did to stackoverflow in a graph",
+      "url": "https://data.stackexchange.com/stackoverflow/query/1953768#graph",
+      "source": "Hacker News",
+      "score": 69.14
+    },
+    {
+      "title": "Kaiser nurses say AI, surveillance are making their jobs and patient care worse",
+      "url": "https://localnewsmatters.org/2026/07/15/kaiser-nurses-say-ai-workplace-surveillance-are-making-their-jobs-and-patient-care-worse/",
+      "source": "Hacker News",
+      "score": 59.25
+    },
+    {
+      "title": "Claude Code team should try macro so users can complete 3x as many tasks",
+      "url": "https://news.ycombinator.com/item?id=48957109",
+      "source": "Hacker News",
+      "score": 57.84,
+      "productCandidate": {
+        "name": "Claude Code",
+        "officialUrlGuess": null
+      }
+    },
+    {
+      "title": "What if restaurant menus had AI copilots?",
+      "url": "https://news.ycombinator.com/item?id=48957135",
+      "source": "Hacker News",
+      "score": 53.26
+    },
+    {
+      "title": "'AI code is insane trash' – David Gerard [video]",
+      "url": "https://www.youtube.com/watch?v=EwLW11Ucnps",
+      "source": "Hacker News",
+      "score": 51.93
+    },
+    {
+      "title": "Trump administration is dictating access to frontier AI models",
+      "url": "https://www.cnbc.com/2026/07/17/white-house-ai-access-anthropic-openai.html",
+      "source": "Hacker News",
+      "score": 51.77
+    },
+    {
+      "title": "Google workers demand layoff protections amid AI boom in petition to CEO",
+      "url": "https://www.theguardian.com/technology/2026/jul/16/google-workers-layoff-protections-ai",
+      "source": "Hacker News",
+      "score": 51.19
+    },
+    {
+      "title": "AI Mania Is Eviscerating Global Decision-Making",
+      "url": "https://ludic.mataroa.blog/blog/ai-mania-is-eviscerating-global-decision-making/",
+      "source": "Hacker News",
+      "score": 51.01
+    },
+    {
+      "title": "Neil Rimer thinks the AI money is coming back out",
+      "url": "https://techcrunch.com/2026/07/17/neil-rimer-thinks-the-ai-money-is-coming-back-out/",
+      "source": "Hacker News",
+      "score": 49.4
+    },
+    {
+      "title": "A grumpy screed about AI in software engineering",
+      "url": "https://sam.sutch.net/posts/a-grumpy-ai-screed",
+      "source": "Hacker News",
+      "score": 49.13
+    },
+    {
+      "title": "Georgia and China Establish Joint Working Group on Artificial Intelligence Development - sovanews.tv",
+      "url": "https://news.google.com/rss/articles/CBMivgFBVV95cUxPdXdOUnBfQ1ZxOXJJQ3NBel85OXctUWFMWWl0d1pvYzJ2MmpJWmdkV0JqbzUxQUcwLVB1STBRekRKUHh2R1FLNVFoVmVJRHNmbUF6WGlRWlExV3lTd29XZ3dhWGt2X2t3RTktSzJXSkN1NWM1QTVITXhKQWdlSHZLdG5YaXlQczctaWlMby16eTZxdXllVVAxQ0JVVmlyTVR0dV9iQmJxc1E5ZzkzSDlWaHBOTThUTkJ2Y1VsR0xn0gHDAUFVX3lxTE5vdXJneFhzOVA1WGhJQV9wSnNjMVk1VEdpMldpYUxqTFVOWmwxSjA5aWt1Q3ViU2k3akJMLXJNcEEycFRrVHdGUV9YWkpIR2dVZU1OY1pYMURCSzJjRVU2VFZNQzJtaUszWFRaMTY5QnJJczdvR3QtTkRxenp1TXN2aEt2WkZsaWpMY1FQR2RpLUgxb05sWExwelJnREk4Y1JQYXRXTl9yOHNtSGhJb21RV3NWMDBPbFR1ZkNpQS1GZ0Y3dw?oc=5",
+      "source": "Google News (AI)",
+      "score": 45.53
+    },
+    {
+      "title": "Everybody's Weirded Out by AI–Except the People Who Foist It on Us",
+      "url": "https://newrepublic.com/article/213004/everybody-weirded-ai-except-people-foist-us",
+      "source": "Hacker News",
+      "score": 45.19
+    },
+    {
+      "title": "AI Gets Trapped in a Circular Loop on Climate Science",
+      "url": "https://news.ycombinator.com/item?id=48956370",
+      "source": "Hacker News",
+      "score": 44.64
+    },
+    {
+      "title": "China's new World Artificial Intelligence Cooperation Organization is President Xi's clearest play yet for a parallel AI order - the-decoder.com",
+      "url": "https://news.google.com/rss/articles/CBMi4wFBVV95cUxPUEp4ck5jdXJCTWVFaHNYNHFMUTk5Mll5ZFlxZU03bHRpMnJHVGVLUlhHWmhSbmZyc1dfX3FVY2pSczZGS0ZFUGZsQk5vcFdKQ3pQYkhNNU10clgxbGFoaFFxb2NxUEdrMnljWWwzb283QzNuV3NOemRBNzN1eGctbnB5cHpHdkZocndlQW01Z25QMFdyb0VXcndoZS1pZmV0aDRCMTFsdUxrVXlwVVRjMU5vak9rSzF6ZkY0eHpMa05icmtMRUZDYXJkWnpfLWRpMEMtcVgzV1lxR0hrbTZkb2c4QQ?oc=5",
+      "source": "Google News (AI)",
+      "score": 43.59
+    }
+  ]
+}
