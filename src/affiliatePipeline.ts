@@ -12,7 +12,7 @@ import { selectAffiliateProduct, type AffiliateSelectionResult } from "./selectA
 import { generateAffiliatePostText, type AffiliatePostGenerationResult } from "./generateAffiliatePost.js";
 import { composeAffiliateThread } from "./affiliateThread.js";
 import { assertValidConfig } from "./config.js";
-import { fetchOgpImageForArticle, type OgpImage } from "./ogpImage.js";
+import { fetchOgpImageForArticle, downloadOgpImage, type OgpImage } from "./ogpImage.js";
 import { getAccountProfile, type AccountProfile } from "./accounts.js";
 import {
   loadAffiliateHistory,
@@ -68,9 +68,17 @@ export interface AffiliatePipelineDependencies {
   /**
    * 選定商品の公式サイトURL(officialUrl)からOGP画像を取得する。取得できない場合はnullを返す(例外を投げない)。
    * アフィリエイト側は商品リストが少数精鋭のため、選定条件には含めず(選定は既存のselectAffiliateProduct
-   * のまま)、選定後にベストエフォートで取得する。
+   * のまま)、選定後にベストエフォートで取得する。商品に`imageUrl`が設定されている場合はこちらではなく
+   * `downloadImage`が使われる(下記参照)。
    */
   fetchOgpImage: (url: string) => Promise<OgpImage | null>;
+  /**
+   * 商品の`imageUrl`(手動指定された画像URL)を直接ダウンロードする。OGP自動取得(fetchOgpImage)とは
+   * 異なりHTML取得・og:image抽出は行わず、指定URLの画像をそのままダウンロード・検証する
+   * (SSRF対策・Content-Type検証・サイズ上限は共通のdownloadOgpImageを再利用するため同一)。
+   * 取得できない場合はnullを返す(例外を投げない)。
+   */
+  downloadImage: (url: string) => Promise<OgpImage | null>;
   appendHistory: (entry: Omit<AffiliatePostHistoryEntry, "id">) => Promise<AffiliatePostHistoryEntry>;
   updateHistory: (id: string, updates: AffiliateHistoryUpdate) => Promise<AffiliatePostHistoryEntry | null>;
 }
@@ -83,6 +91,7 @@ function buildDefaultDeps(account: AccountProfile): AffiliatePipelineDependencie
     generate: (product) => generateAffiliatePostText(product, undefined, account),
     buildThread: (text, productId) => composeAffiliateThread(text, productId),
     fetchOgpImage: (url) => fetchOgpImageForArticle(url),
+    downloadImage: (url) => downloadOgpImage(url),
     appendHistory: (entry) => appendAffiliateHistoryEntry(entry),
     updateHistory: (id, updates) => updateAffiliateHistoryEntry(id, updates),
   };
@@ -241,25 +250,33 @@ export async function runAffiliatePostingPipeline(
 
   const tweets = deps.buildThread(generation.text, selection.selected.id);
 
-  // 商品の公式サイトURL(officialUrl)からOGP画像を取得する(ベストエフォート、失敗しても投稿処理を
-  // ブロックしない)。deps.fetchOgpImageは自身の内部で失敗をnullとして返す設計だが、想定外の例外が
+  // 投稿に添付する画像を取得する(ベストエフォート、失敗しても投稿処理をブロックしない)。優先順位:
+  //   1. product.imageUrl が設定されていれば、OGP自動取得は行わずそのURLを直接ダウンロードする
+  //      (公式サイトにog:imageが無い商品向けの手動指定)。
+  //   2. imageUrl未設定なら、従来通りofficialUrlに対してOGP自動取得(fetchOgpImage)を試みる。
+  //   3. いずれも失敗・未設定なら画像なしで投稿継続する。
+  // deps.downloadImage/deps.fetchOgpImageはいずれも内部で失敗をnullとして返す設計だが、想定外の例外が
   // 飛んできた場合の安全網としてここでもcatchしておく。
+  const imageSourceUrl = selection.selected.imageUrl ?? selection.selected.officialUrl;
   let ogpImage: OgpImage | null = null;
   try {
-    ogpImage = await deps.fetchOgpImage(selection.selected.officialUrl);
+    ogpImage = selection.selected.imageUrl
+      ? await deps.downloadImage(selection.selected.imageUrl)
+      : await deps.fetchOgpImage(selection.selected.officialUrl);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    log.warn("unexpected error while fetching ogp image for affiliate product; continuing without image", {
-      officialUrl: selection.selected.officialUrl,
+    log.warn("unexpected error while fetching image for affiliate product; continuing without image", {
+      imageSourceUrl,
+      usedManualImageUrl: Boolean(selection.selected.imageUrl),
       message,
     });
     ogpImage = null;
   }
   log.info(
     ogpImage
-      ? "ogp image available for this affiliate post"
-      : "no ogp image available for this affiliate post; continuing without image",
-    { officialUrl: selection.selected.officialUrl, imageUrl: ogpImage?.url }
+      ? "image available for this affiliate post"
+      : "no image available for this affiliate post; continuing without image",
+    { imageSourceUrl, usedManualImageUrl: Boolean(selection.selected.imageUrl), imageUrl: ogpImage?.url }
   );
 
   let historyWritten = false;

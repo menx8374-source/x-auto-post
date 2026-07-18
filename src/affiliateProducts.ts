@@ -20,6 +20,13 @@ export interface AffiliateProduct {
   name: string;
   /** 公式サイトURL */
   officialUrl: string;
+  /**
+   * 商品のメイン画像URL(任意)。公式サイトにog:imageメタタグが無い等の理由でOGP自動取得が
+   * できない商品向けに、ユーザーが公式サイト等で確認した画像URLを手動で指定するためのフィールド。
+   * 設定されている場合、投稿時はOGP自動取得(officialUrlからのog:image抽出)を行わず、
+   * このURLから直接画像をダウンロードする(src/affiliatePipeline.tsの画像取得ロジック参照)。
+   */
+  imageUrl?: string;
   /** アフィリエイトリンク(ユーザーが実在のアフィリエイトプログラムから手動で取得して入力する) */
   affiliateUrl: string;
   /** 事実ベースの特長・スペックの箇条書き(ユーザーが公式情報から手動で記入する。AIは書かない) */
