@@ -25,14 +25,16 @@ admin/
       products.ts          # GET: 商品一覧取得 / POST: 商品追加・更新
       candidates.ts         # GET: 候補ヒント(参考情報)取得
       suggestFacts.ts        # POST: 公式サイトURLからfacts候補を提案(Anthropic API呼び出し)
+      resolveAffiliateLink.ts  # POST: アフィリエイトリンク1つからofficialUrl/商品名/画像/factsを自動解決
     _lib/
       github.ts            # GitHub REST API呼び出しの共通ヘルパー
       session.ts             # 署名付きセッションCookieのsign/verify(Web Crypto API)
       validate.ts             # URL・商品IDのバリデーション純粋関数
-      ssrf.ts                 # SSRF対策の簡易ホスト名チェック(suggestFacts.tsが使用)
+      ssrf.ts                 # SSRF対策の簡易ホスト名チェック(suggestFacts.ts/resolveAffiliateLink.tsが使用)
       htmlText.ts              # HTMLから可読テキストを抽出する純粋関数
       fetchLimited.ts           # fetch応答をサイズ上限つきで読み取る
       factsPrompt.ts             # facts提案プロンプト構築・レスポンス解析の純粋関数
+      ogpMeta.ts               # HTMLからOGPメタデータ(og:title/og:image)を抽出する純粋関数
       types.ts                # Env / AffiliateProduct型定義
   public/                    # 配信される静的ファイル(素のHTML/CSS/JS)
   test/                      # node:testによるユニットテスト

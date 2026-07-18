@@ -102,6 +102,8 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
     logoutButton.hidden = false;
     appEl.innerHTML = "";
 
+    appEl.appendChild(renderAffiliateQuickAddSection());
+
     appEl.appendChild(
       el("section", { class: "card" }, [
         el("div", { class: "section-header" }, [
@@ -113,6 +115,87 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
     );
 
     appEl.appendChild(renderCandidatesSection());
+  }
+
+  /**
+   * 「アフィリエイトリンクを貼るだけで追加」セクションを描画する。
+   * A8.netの広告リンク作成画面で取得できる「リンク先URLをコピー」のリンク1つだけから、
+   * `POST /api/resolveAffiliateLink`でリダイレクト先(officialUrl)・商品名・画像・事実情報を
+   * 自動解決し、商品追加フォームを事前入力した状態で開く(商品ID・商品名は必須入力にしない)。
+   */
+  function renderAffiliateQuickAddSection() {
+    const tpl = document.getElementById("tpl-affiliate-quick-add");
+    const fragment = tpl.content.cloneNode(true);
+    const section = fragment.querySelector(".affiliate-quick-add");
+    const input = fragment.querySelector("#affiliate-quick-add-input");
+    const button = fragment.querySelector("#affiliate-quick-add-button");
+    const statusEl = fragment.querySelector("#affiliate-quick-add-status");
+
+    button.addEventListener("click", () => resolveAffiliateLinkAndOpenForm(input, statusEl, button));
+
+    return section;
+  }
+
+  /**
+   * アフィリエイトリンクを解決し、商品追加フォームを事前入力した状態で開く。
+   * 【重要】ユーザーが入力欄に貼り付けた元のaffiliateUrl(`affiliateUrl`変数)は、A8.netの
+   * 成果計測トラッキングパラメータ(a8mat=等)を含むため、サーバーのレスポンスではなく
+   * この変数の値をそのままフォームのaffiliateUrl欄に設定する(書き換え厳禁)。
+   * 失敗時はエラーメッセージを表示するのみで、フォームは開かない
+   * (ユーザーが手動で「+ 商品を追加」から入力できる状態を維持する)。
+   * @param {HTMLInputElement} input
+   * @param {HTMLElement} statusEl
+   * @param {HTMLButtonElement} button
+   */
+  async function resolveAffiliateLinkAndOpenForm(input, statusEl, button) {
+    const affiliateUrl = input.value.trim();
+    statusEl.hidden = false;
+
+    if (!affiliateUrl || !isHttpUrl(affiliateUrl)) {
+      statusEl.textContent = "アフィリエイトリンク(http:またはhttps:)を入力してから実行してください。";
+      return;
+    }
+
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "解析中...";
+    statusEl.textContent = "リンク先を確認しています...(数秒かかることがあります)";
+
+    const { res, data, networkError } = await fetchJSON("/api/resolveAffiliateLink", {
+      method: "POST",
+      body: JSON.stringify({ affiliateUrl }),
+    });
+
+    button.disabled = false;
+    button.textContent = originalLabel;
+
+    if (networkError) {
+      statusEl.textContent = `通信エラーが発生しました: ${networkError}`;
+      return;
+    }
+    if (!res.ok) {
+      statusEl.textContent = (data && data.error) || "リンクの解析に失敗しました。";
+      return;
+    }
+
+    const name = (data && data.name) || "";
+    const officialUrl = (data && data.officialUrl) || "";
+    const imageUrl = (data && data.imageUrl) || "";
+    const facts = data && Array.isArray(data.facts) ? data.facts : [];
+
+    statusEl.textContent = "";
+    statusEl.hidden = true;
+    input.value = "";
+
+    openForm(null, {
+      id: name ? slugifyProductName(name) : "",
+      name,
+      officialUrl,
+      imageUrl,
+      facts: facts.join("\n"),
+      // サーバーのレスポンスにはaffiliateUrlを含めない設計のため、ユーザーが入力した元の値を使う
+      affiliateUrl,
+    });
   }
 
   function renderProductList() {
@@ -286,13 +369,22 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
       form.elements.category.value = product.category || "";
       form.elements.enabled.checked = Boolean(product.enabled);
     } else if (prefill) {
-      title.textContent = "商品を追加(候補ヒントから)";
+      title.textContent = prefill.affiliateUrl
+        ? "商品を追加(アフィリエイトリンクから)"
+        : "商品を追加(候補ヒントから)";
       form.elements.id.value = prefill.id || "";
       form.elements.name.value = prefill.name || "";
       form.elements.officialUrl.value = prefill.officialUrl || "";
-      form.elements.facts.value = "";
-      form.elements.facts.placeholder = "公式サイトを確認し、事実ベースの特長を1行ずつ入力してください";
-      form.elements.enabled.checked = false; // 下書き状態: ユーザーが内容を確認して保存するまで投稿対象にしない
+      form.elements.imageUrl.value = prefill.imageUrl || "";
+      if (prefill.affiliateUrl) {
+        // ユーザーが入力欄に貼り付けた元の値をそのまま使う(A8.netのトラッキングパラメータを保持するため書き換え厳禁)
+        form.elements.affiliateUrl.value = prefill.affiliateUrl;
+      }
+      form.elements.facts.value = prefill.facts || "";
+      if (!prefill.facts) {
+        form.elements.facts.placeholder = "公式サイトを確認し、事実ベースの特長を1行ずつ入力してください";
+      }
+      form.elements.enabled.checked = false; // 下書き状態: 保存時のresolveEnabledOnSubmitにより、affiliateUrlが有効なら自動でtrueになる
     } else {
       title.textContent = "商品を追加";
     }
@@ -377,6 +469,22 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
     if (imageUrl) payload.imageUrl = imageUrl;
     const category = form.elements.category.value.trim();
     if (category) payload.category = category;
+
+    // 「アフィリエイトリンクを貼るだけで追加」機能は、商品名やfactsが自動抽出できなかった
+    // 場合に、id/name/facts欄が空欄のままフォームを開くことがある(意図的な仕様)。これらの
+    // 欄からHTML5のrequired属性を外しているため、ここで明示的にチェックし、わかりやすい
+    // エラーメッセージを表示する(ブラウザのネイティブバリデーションによる無言のブロックに
+    // しない。なお1つでもrequired属性が残る欄が空だとブラウザは submit イベント自体を
+    // 発火させずこのJSに到達できないため、id/name同様factsのrequiredも外した上でここで検証する)。
+    const missingFields = [];
+    if (!payload.id) missingFields.push("商品ID");
+    if (!payload.name) missingFields.push("商品名");
+    if (facts.length === 0) missingFields.push("特長(facts)");
+    if (missingFields.length > 0) {
+      errorEl.textContent = `${missingFields.join("・")}を入力してください。`;
+      errorEl.hidden = false;
+      return;
+    }
 
     // 新規追加(編集ではない)の場合のみ、既存商品との重複IDをブロックする(既存商品編集フローは
     // 意図的にid一致で更新するため対象外)。候補ヒントから自動生成されたidが偶然既存の有効な

@@ -357,5 +357,91 @@ npm test           # node --import tsx --test test/**/*.test.ts
 ### 追加したテスト
 - `admin/test/a8Search.test.ts`: `buildA8SearchUrl`の新規テスト3件(商品名ありの正しいURL生成・URLエンコード・空文字列/undefined/空白のみでのフォールバック)を追加。既存の`buildA8GuideMessage`テスト2件を新しい文言に合わせて更新。
 
+---
+
+## 追加機能(2026-07-19): アフィリエイトリンク1つだけで商品を自動入力
+
+ユーザー要望「商品IDとか商品名とか、必須にしないでください。必須なのは、A8.netの広告リンク作成画面で『リンク先URLをコピー』を押したときに手に入るリンクだけです」への対応。A8.netのアフィリエイトトラッキングリンク(`px.a8.net`等)を1つ貼るだけで、リダイレクト追跡→到達先ページのOGP/本文からofficialUrl・商品名・画像・facts候補を自動抽出し、商品追加フォームを事前入力する。
+
+### 実装した内容
+- `admin/functions/_lib/ogpMeta.ts`(新規): 純粋関数`extractOgpMetadata(html, baseUrl)`。`og:title`/`og:image`をmetaタグから抽出(property/name属性どちらも許容)、titleは`<title>`をフォールバック、imageは`baseUrl`基準で相対URLを絶対URL解決し`isHttpUrl`で不正スキームを弾く。HTMLエンティティのデコードも実装。
+- `admin/functions/api/resolveAffiliateLink.ts`(新規): `POST /api/resolveAffiliateLink`。認証必須。
+  - リダイレクトを`redirect: "manual"`で1ホップずつ手動追跡し、**各ホップのURLをfetchする前に**`isSafeExternalUrl`で検証(`suggestFacts.ts`のfetch後`res.url`事後検証より一段厳格な事前検証方式)。最大5ホップで超過時はエラー。
+  - 最終到達(200 OK・非リダイレクト)ページのURLを`officialUrl`とし、`readTextWithLimit`(既存、1MB上限)でHTML取得→`extractOgpMetadata`でname/imageUrl抽出、`extractTextFromHtml`+`truncatePageText`(いずれも既存)で本文抽出。
+  - `suggestFacts.ts`と同じAnthropic API呼び出しロジック(`buildFactsSuggestionPrompt`/`parseFactsSuggestionResponse`/`extractTextFromAnthropicMessage`、`admin/functions/_lib/factsPrompt.ts`を共有)でfacts抽出。`ANTHROPIC_API_KEY`未設定・AI呼び出し自体の失敗(タイムアウト・非200等)はいずれも例外を投げず`facts: []`にフォールバックし、officialUrl/name/imageUrlは返す(このエンドポイントの主目的である自動入力自体は、facts抽出の成否に関わらず価値があるため。仕様書は「API_KEY未設定時」のみ明示していたが、同じ思想をAI呼び出し失敗全般に一貫させた判断)。
+  - `affiliateUrl`自体(ユーザーが貼り付けた元の値、A8.netのトラッキングパラメータ`a8mat=`等を含む)はレスポンスに一切含めない(サーバー側は書き換えも保持もしない)。
+- `admin/public/app.js`: 商品一覧上部に「アフィリエイトリンクを貼るだけで追加」入力欄+「自動入力して追加」ボタンを配置(`renderAffiliateQuickAddSection`)。押下時`resolveAffiliateLinkAndOpenForm`が`isHttpUrl`検証→`/api/resolveAffiliateLink`呼び出し→成功時`openForm(null, {id: slugifyProductName(name)有れば, name, officialUrl, imageUrl, facts, affiliateUrl})`でフォームを事前入力して開く。**affiliateUrlはサーバーレスポンスではなく、入力欄にユーザーが貼り付けた元の値をそのまま使う**(書き換え厳禁の要件を満たすため変数を直接渡す設計)。失敗時はステータス欄にエラーメッセージを表示するのみでフォームは開かない。
+  - `openForm()`のprefill分岐を拡張し、`imageUrl`/`facts`/`affiliateUrl`も事前入力できるようにした(既存の候補ヒント経由フロー`addProductFromCandidate`は引き続きこれらを渡さないため、値は空のまま・挙動は無変更)。フォームタイトルは`prefill.affiliateUrl`の有無で「商品を追加(アフィリエイトリンクから)」/「商品を追加(候補ヒントから)」を出し分け。
+  - `enabled`は既存の`resolveEnabledOnSubmit`により、保存時にaffiliateUrlが有効なら自動でtrueになる(無変更のロジックがそのまま機能)。
+  - id衝突時は既存の`findConflictingProduct`によるチェックが保存時に働く(無変更のロジックがそのまま機能)。
+- `admin/public/index.html`: `<template id="tpl-affiliate-quick-add">`を追加。
+- `admin/public/style.css`: `.affiliate-quick-add`の入力欄/ボタンレイアウトを追加。
+
+### 技術選定
+- 追加ライブラリなし。既存パターン(`suggestFacts.ts`のAnthropic API呼び出し・SSRF対策、`src/ogpImage.ts`の手動リダイレクト追跡+都度検証の設計思想)を踏襲。
+
+### 受け入れ基準チェック(自己申告)
+- [x] `POST /api/resolveAffiliateLink`が認証必須: テストで401確認。
+- [x] affiliateUrlのスキーム検証(400、fetch未呼び出し): テストで確認。
+- [x] リダイレクトを手動で1ホップずつ追跡し、各ホップをfetch前に`isSafeExternalUrl`で検証: 実装・テストで確認(内部向けホストへは一度もfetchが発生しないことをテストで検証)。
+- [x] 最大5ホップ、超過時エラー: テストで確認(6回のfetchで打ち切り、502)。
+- [x] 最終到達ページのURLがofficialUrl、かつ検証済み: 実装上、全ホップ(最終含む)がループ内で`isSafeExternalUrl`を通過してからfetchされる構造で保証。
+- [x] `extractOgpMetadata`(og:title/og:image優先、titleフォールバック、相対image URLの絶対URL解決、不正スキーム除外): `ogpMeta.test.ts`(9件)で検証。
+- [x] facts抽出は`suggestFacts.ts`と同じプロンプト・パースロジックを再利用: `factsPrompt.ts`をimportして共有。
+- [x] `ANTHROPIC_API_KEY`未設定時はfacts空配列にフォールボック、officialUrl/name/imageUrlは返す(エラーにしない): テストで確認。
+- [x] 各段階のエラー(SSRF拒否・リダイレクト失敗・タイムアウト等)は4xx/5xxで返す: テストで確認(400/502)。
+- [x] affiliateUrlはレスポンスに含めない: テストで`data.affiliateUrl === undefined`を確認。
+- [x] フロントエンド: 入力欄+ボタンを商品一覧上部に配置、押下で自動解決→フォーム事前入力: Playwright(手動スクリプト、後述)で実機確認。
+- [x] affiliateUrlはユーザー入力値をそのまま使う(サーバーレスポンスの値ではない): フロントのコードで直接変数を渡す設計、Playwrightで入力値がa8mat=を含む元URLと完全一致することを確認。
+- [x] id衝突時は既存の`findConflictingProduct`による警告が働く: ロジック変更なし、既存の保存時チェックがそのまま適用される(コードレビューで確認、既存の`productConflict.test.ts`は無変更で通過)。
+- [x] 失敗時はフォームを開かない: 実装で`if (!res.ok) { statusEl.textContent = ...; return; }`(openFormを呼ばずreturn)。
+- [x] 既存の本番パイプライン・`products.ts`/`suggestFacts.ts`は無変更(git diffで対象外を確認)。
+- [x] シークレットのハードコードなし(ANTHROPIC_API_KEYは既存の`env`経由、新規シークレットなし)。
+- [x] `npm test`(ルート293件・admin126件、新規`ogpMeta.test.ts`9件+`resolveAffiliateLink.test.ts`7件)・`npm run typecheck`(ルート・admin両方)通過を確認。
+- [x] git commitはしていない。
+
+### アプリの起動方法(admin管理ページ、ローカル確認用、変更なし)
+```bash
+cd admin
+npm install
+npm run dev        # wrangler pages dev public --compatibility-date=2026-07-01 (既定ポート8788)
+npm run typecheck  # tsc --noEmit(tsconfig.json + tsconfig.test.json)
+npm test           # node --import tsx --test test/**/*.test.ts
+```
+
+### 既知の問題・懸念点
+- **dev環境の`GITHUB_PAT`が無効(Bad credentials)**: `wrangler pages dev`起動時、実際の`/api/products`はGitHub APIが401を返すため、素の状態では商品一覧画面まで到達できない(本機能とは無関係の既存の環境制約)。今回はPlaywrightで`/api/products`・`/api/candidates`・`/api/resolveAffiliateLink`をモックし、フロントエンドのUI描画・値の伝搬(id自動生成・name/officialUrl/imageUrl/facts/affiliateUrlの事前入力・affiliateUrlが改変されず入力値のまま保持されること)を実機のChromiumで確認した。
+- **ブラウザ実機確認時に観測した無害なコンソール警告**: 上記Playwright確認の一部の実行で`Pattern attribute value [a-zA-Z0-9_-]+ is not a valid regular expression`という警告がまれに出た。これは商品ID欄の`pattern="[a-zA-Z0-9_-]+"`属性(今回のスプリント以前から`index.html`に存在、本機能では変更していない)に対するブラウザ(Chromium)側の内部的な遅延正規表示コンパイルに関する挙動と見られ、再現条件を切り分けたところ同じ値・同じフォーム構造でも発生しないケースが多数あり非決定的だった。フォームへの値の反映(id/name/officialUrl/imageUrl/affiliateUrl/facts)自体は毎回正しく行われることを確認しており、機能的な不具合ではないと判断した。念のため記録する。
+- 実際のA8.netリンク・実際の商品ページ・実際のAnthropic APIキーを使ったエンドツーエンドの動作(実リダイレクト追跡・実OGP抽出精度・facts抽出精度)は未検証(fetchモックによるユニットテストと、UIをモックAPIでつないだPlaywright確認のみ)。実際のA8.netリンクを1件用意して目視確認することを推奨。
+
+### 追加したテスト
+- `admin/test/ogpMeta.test.ts`(新規、9件): og:title/og:image両方あり・titleフォールバック・相対image URL解決・不正スキーム除外・パース不能値・meta無し・空/型不正入力・name属性対応・HTMLエンティティデコード。
+- `admin/test/resolveAffiliateLink.test.ts`(新規、7件): 未認証401・不正スキーム400(fetch未呼び出し)・リダイレクト先内部ホスト400(事前検証、fetch未呼び出し確認)・最大ホップ超過502(6回のfetchで打ち切り確認)・fetch失敗(タイムアウト想定)502・`ANTHROPIC_API_KEY`未設定時のfacts空配列フォールバック(AI呼び出し未実行確認)・正常系(リダイレクト2回追跡→OGP抽出→facts抽出まで一貫)。
+
+---
+
+## /code-review指摘への対応(2026-07-19、アフィリエイトリンク自動解決機能の再実装)
+
+オーケストレーターの`/security-review`(指摘なし)・`/code-review`(effort: low)でCONFIRMED 2件が見つかりFAIL。以下を修正。
+
+### 対応内容
+1. **[admin/functions/_lib/ogpMeta.ts] `extractAttr`の引用符不一致によるダブルクォート値の途中切れ**: 正規表現`["']([^"']*)["']`が開始・終了の引用符の種類を区別せず、`content="Trader Joe's Coffee"`のようにダブルクォート値の中にアポストロフィが含まれる場合、キャプチャがアポストロフィの手前(`Trader Joe`)で止まってしまうバグだった。
+   - `(?:"([^"]*)"|'([^']*)')`に変更し、ダブルクォート囲み・シングルクォート囲みを別々の代替パターンとして扱い、開始と同じ種類の引用符が閉じ引用符になるまでを正しくキャプチャするよう修正(`extractAttr`はマッチしたグループのうち定義されている方を返す)。
+2. **[admin/public/index.html] id/name欄のrequired属性による無言のブロック**: 「アフィリエイトリンクを貼るだけで追加」機能はog:title等から商品名が抽出できない場合、id/name欄が空欄のままフォームを開くが、`required`属性により保存ボタンがブラウザのネイティブバリデーションで無言にブロックされ、機能の意図(リンクだけで追加できる)と矛盾していた。
+   - `admin/public/index.html`のid・name入力欄から`required`属性を削除。
+   - **調査の過程で、同じフォームの`facts`(特長)テキストエリアにも`required`属性が残っており、resolveAffiliateLinkがfacts抽出に失敗した場合(例: `ANTHROPIC_API_KEY`未設定)に同じ「無言ブロック」が発生することを確認した**。HTML5のフォームバリデーションは、フォーム内のいずれか1つでも`required`属性を持つフィールドが空だとブラウザが`submit`イベント自体を発火させないため、id/nameのrequiredだけを外してもfactsが空のままだと`submitForm()`のJSに到達できず、id/name用に追加したエラーメッセージ表示も機能しないことをPlaywrightで実際に検証して確認した。この修正指示の意図(「リンクだけで追加できる」ようにする)を実際に達成するには、facts欄のrequiredも合わせて外す必要があると判断し、同様に対応した(id/name同様、事実情報(facts)の抽出も失敗しうる自動入力の性質上、同じ無言ブロック問題を抱えていたため)。
+   - `admin/public/app.js`の`submitForm()`に、id/name/facts(空配列)のいずれかが未入力の場合にわかりやすいエラーメッセージ(「商品ID・商品名・特長(facts)を入力してください。」のように不足項目を列挙)を表示しリターンする明示的なチェックを追加(既存のサーバー側`validateProductInput`が引き続き最終防衛ラインとして機能する点は無変更)。
+
+### 修正後の検証
+- admin: `npm run typecheck` OK、`npm test` 129件全パス(新規`ogpMeta.test.ts`に引用符不一致の回帰テスト3件を追加)。
+- ルート: `npm run typecheck` OK、`npm test` 293件全パス(既存機能への影響なし)。
+- `wrangler pages dev`を一時起動しPlaywrightで実機確認:
+  - id/name/factsが揃わない状態で保存ボタンを押しても`submit`イベントがブロックされず、フォーム内にエラーメッセージ「商品ID・商品名・特長(facts)を入力してください。」が表示されフォームが開いたまま保存が中断されることを確認(`checkValidity()`で該当フィールドのネイティブ無効フラグが立っていないことも確認)。
+  - id/name/officialUrl/affiliateUrl/factsをすべて入力した通常の保存フローは従来通り`POST /api/products`が正しいペイロード(enabled自動true含む)で呼ばれ、フォームが閉じることを確認(回帰なし)。
+  - 確認後プロセスを停止(ポート解放済み)。
+
+### 追加したテスト
+- `admin/test/ogpMeta.test.ts`(3件追加、計12件): ダブルクォート値中のアポストロフィで途中で切れないこと(直接の回帰テスト)、シングルクォート値中のダブルクォートで途中で切れないこと、ダブルクォート値中にアポストロフィを含むog:imageも正しくURL解決されること。
+
 ## 関連ドキュメント
 - [[x-ai-news-autopost-spec]]（製品仕様書）

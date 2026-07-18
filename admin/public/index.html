@@ -24,6 +24,18 @@
   </section>
 </template>
 
+<template id="tpl-affiliate-quick-add">
+  <section class="card affiliate-quick-add">
+    <h2>アフィリエイトリンクを貼るだけで追加</h2>
+    <p class="hint-note">A8.netの広告リンク作成画面で「リンク先URLをコピー」したリンクを貼り付けると、商品名・公式サイトURL・画像・事実情報を自動入力します。</p>
+    <div class="field-actions">
+      <input type="url" id="affiliate-quick-add-input" placeholder="https://px.a8.net/svt/ejp?a8mat=...">
+      <button type="button" id="affiliate-quick-add-button" class="btn btn-primary">自動入力して追加</button>
+    </div>
+    <p id="affiliate-quick-add-status" class="hint-note" hidden></p>
+  </section>
+</template>
+
 <template id="tpl-product-form">
   <form id="product-form" class="card product-form">
     <h2 class="form-title">商品を追加</h2>
@@ -31,13 +43,13 @@
 
     <label>
       商品ID <span class="required">*</span>
-      <input type="text" name="id" required pattern="[a-zA-Z0-9_-]+"
-             placeholder="例: product1(英数字・-・_のみ)">
+      <input type="text" name="id" pattern="[a-zA-Z0-9_-]+"
+             placeholder="例: product1(英数字・-・_のみ、保存には必須)">
     </label>
 
     <label>
       商品名 <span class="required">*</span>
-      <input type="text" name="name" required placeholder="商品・サービス名">
+      <input type="text" name="name" placeholder="商品・サービス名(保存には必須)">
     </label>
 
     <label>
@@ -64,7 +76,7 @@
 
     <label>
       特長(1行1件、事実ベースのみ) <span class="required">*</span>
-      <textarea name="facts" rows="4" required placeholder="公式サイト・スペック表から確認できる特長を1行ずつ"></textarea>
+      <textarea name="facts" rows="4" placeholder="公式サイト・スペック表から確認できる特長を1行ずつ(保存には必須)"></textarea>
     </label>
 
     <label>

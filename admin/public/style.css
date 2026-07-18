@@ -262,6 +262,25 @@ body {
   font-size: 0.85rem;
 }
 
+.affiliate-quick-add .field-actions {
+  margin-top: 8px;
+}
+
+.affiliate-quick-add input[type="url"] {
+  flex: 2;
+  min-width: 200px;
+  font-size: 1rem;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.affiliate-quick-add .btn {
+  flex: 1;
+  min-width: 140px;
+}
+
 .hint-note {
   color: var(--color-muted);
   font-size: 0.85rem;
