@@ -3,6 +3,7 @@
 // モジュールバンドラは使わずブラウザネイティブのESモジュール(<script type="module">)のみで完結させる。
 import { slugifyProductName } from "./candidateSlug.js";
 import { findConflictingProduct } from "./productConflict.js";
+import { A8_TOP_URL, copyTextSafely, buildA8GuideMessage } from "./a8Search.js";
 
 (() => {
   "use strict";
@@ -158,6 +159,76 @@ import { findConflictingProduct } from "./productConflict.js";
     }
   }
 
+  /**
+   * 機能1: A8.netへのショートカット(申請リンク)。
+   * A8.netのプログラム検索は公式にURLパラメータ形式が公開されていないため、商品名を付与した
+   * 検索結果への直リンクは作らない(壊れたリンクになるリスクがあるため作らないと合意済み)。
+   * 代わりにトップページを新しいタブで開き、商品名をクリップボードにコピーして案内する。
+   * @param {string} name
+   */
+  async function openA8Search(name) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) {
+      window.alert("商品名が未入力のため、A8.netでの検索を開けません。商品名を入力してから実行してください。");
+      return;
+    }
+    window.open(A8_TOP_URL, "_blank", "noopener,noreferrer");
+    const copied = await copyTextSafely(trimmed, window.navigator && window.navigator.clipboard);
+    window.alert(buildA8GuideMessage(trimmed, copied));
+  }
+
+  /**
+   * 機能2: 公式サイトURLから事実情報(facts)を自動提案。
+   * `POST /api/suggestFacts`の結果を、現在のfacts欄に「追記」する(既存の入力は上書きしない)。
+   * あくまで下書き候補であり、ユーザーが確認・編集した上で保存する運用(自動保存はしない)。
+   * @param {HTMLFormElement} form
+   */
+  async function suggestFactsFromOfficialUrl(form) {
+    const statusEl = form.querySelector("#suggest-facts-status");
+    const button = form.querySelector("#suggest-facts-button");
+    const officialUrl = form.elements.officialUrl.value.trim();
+
+    statusEl.hidden = false;
+
+    if (!officialUrl || !isHttpUrl(officialUrl)) {
+      statusEl.textContent = "公式サイトURL(http:またはhttps:)を入力してから実行してください。";
+      return;
+    }
+
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "提案を取得中...";
+    statusEl.textContent = "公式サイトの内容を確認しています...(数秒かかることがあります)";
+
+    const { res, data, networkError } = await fetchJSON("/api/suggestFacts", {
+      method: "POST",
+      body: JSON.stringify({ officialUrl }),
+    });
+
+    button.disabled = false;
+    button.textContent = originalLabel;
+
+    if (networkError) {
+      statusEl.textContent = `通信エラーが発生しました: ${networkError}`;
+      return;
+    }
+    if (!res.ok) {
+      statusEl.textContent = (data && data.error) || "事実情報の提案取得に失敗しました。";
+      return;
+    }
+
+    const facts = data && Array.isArray(data.facts) ? data.facts : [];
+    if (facts.length === 0) {
+      statusEl.textContent = "公式サイトから事実情報を抽出できませんでした。手動で入力してください。";
+      return;
+    }
+
+    const factsField = form.elements.facts;
+    const existing = factsField.value.trim();
+    factsField.value = existing ? `${existing}\n${facts.join("\n")}` : facts.join("\n");
+    statusEl.textContent = `${facts.length}件の候補をfacts欄に追記しました。内容を確認・編集してから保存してください。`;
+  }
+
   async function toggleEnabled(product, enabled) {
     const updated = { ...product, enabled };
     const { res, data, networkError } = await fetchJSON("/api/products", {
@@ -227,6 +298,12 @@ import { findConflictingProduct } from "./productConflict.js";
     form.addEventListener("submit", (event) => submitForm(event, form));
     fragment.querySelector("#cancel-form-button").addEventListener("click", () => {
       closeForm();
+    });
+    fragment.querySelector("#a8-search-button").addEventListener("click", () => {
+      openA8Search(form.elements.name.value);
+    });
+    fragment.querySelector("#suggest-facts-button").addEventListener("click", () => {
+      suggestFactsFromOfficialUrl(form);
     });
 
     appEl.prepend(fragment);
@@ -368,6 +445,15 @@ import { findConflictingProduct } from "./productConflict.js";
               "button",
               { class: "btn btn-secondary", type: "button", onclick: () => addProductFromCandidate(item) },
               ["商品として追加"]
+            ),
+            el(
+              "button",
+              {
+                class: "btn btn-secondary",
+                type: "button",
+                onclick: () => openA8Search(item.productCandidate.name),
+              },
+              ["A8.netで探す"]
             ),
           ])
         );

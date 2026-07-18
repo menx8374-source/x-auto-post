@@ -14,7 +14,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node", "@cloudflare/workers-types"]
   },
   "include": ["test", "public"]
 }

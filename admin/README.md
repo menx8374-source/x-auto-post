@@ -24,10 +24,15 @@ admin/
       auth/logout.ts      # セッションCookie削除
       products.ts          # GET: 商品一覧取得 / POST: 商品追加・更新
       candidates.ts         # GET: 候補ヒント(参考情報)取得
+      suggestFacts.ts        # POST: 公式サイトURLからfacts候補を提案(Anthropic API呼び出し)
     _lib/
       github.ts            # GitHub REST API呼び出しの共通ヘルパー
       session.ts             # 署名付きセッションCookieのsign/verify(Web Crypto API)
       validate.ts             # URL・商品IDのバリデーション純粋関数
+      ssrf.ts                 # SSRF対策の簡易ホスト名チェック(suggestFacts.tsが使用)
+      htmlText.ts              # HTMLから可読テキストを抽出する純粋関数
+      fetchLimited.ts           # fetch応答をサイズ上限つきで読み取る
+      factsPrompt.ts             # facts提案プロンプト構築・レスポンス解析の純粋関数
       types.ts                # Env / AffiliateProduct型定義
   public/                    # 配信される静的ファイル(素のHTML/CSS/JS)
   test/                      # node:testによるユニットテスト
@@ -47,6 +52,8 @@ admin/
    キーと実際の値を登録する(`GITHUB_PAT` / `GITHUB_REPO` / `GITHUB_BRANCH` /
    `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` / `ALLOWED_GITHUB_LOGIN` /
    `SESSION_SECRET`)。
+5. (任意)「公式サイトから事実情報を提案」機能を使う場合は `ANTHROPIC_API_KEY` も同様に
+   登録する。未設定でもそれ以外の機能(商品CRUD・A8.netショートカット等)には影響しない。
 
 ## ローカル開発
 

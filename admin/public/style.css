@@ -249,6 +249,19 @@ body {
   flex: 1;
 }
 
+.field-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: -4px;
+}
+
+.field-actions .btn {
+  flex: 1;
+  min-width: 140px;
+  font-size: 0.85rem;
+}
+
 .hint-note {
   color: var(--color-muted);
   font-size: 0.85rem;

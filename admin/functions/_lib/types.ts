@@ -17,6 +17,11 @@ export interface Env {
   ALLOWED_GITHUB_LOGIN: string;
   /** セッションCookie署名用のシークレット */
   SESSION_SECRET: string;
+  /**
+   * Anthropic APIキー(`/api/suggestFacts`用)。任意設定(未設定の場合、当該機能は
+   * 「利用できません」エラーを返すのみで、既存の他機能には影響しない)。
+   */
+  ANTHROPIC_API_KEY?: string;
 }
 
 /**
