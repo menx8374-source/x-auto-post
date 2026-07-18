@@ -40,6 +40,17 @@ data/history/*
 # コミットして永続化するため、post-history.json同様git管理対象にする。
 !data/history/affiliate-post-history.json
 
+# アフィリエイト商品候補ヒント(参考情報、読み取り専用)。data/output/ 配下ではなくdataルート直下に
+# 生成されるため、update-candidate-hints.ymlワークフローがコミットして永続化できるようgit管理対象にする
+# (data/history/affiliate-post-history.jsonと同じ理由)。data/output/配下は引き続き無視のまま。
+!data/affiliate-candidate-hints.json
+
+# admin/(Cloudflare Pages)サブプロジェクトのローカル開発用シークレット・wrangler実行時状態。
+# admin/node_modules/ は上記 node_modules/ パターンで既にカバーされる。
+admin/.dev.vars
+admin/.dev.vars.*
+admin/.wrangler/
+
 # Logs
 *.log
 npm-debug.log*

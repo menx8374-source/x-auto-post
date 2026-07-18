@@ -1,0 +1,10 @@
+name = "x-auto-post-admin"
+compatibility_date = "2026-07-01"
+pages_build_output_dir = "public"
+
+# 実際のシークレット(GITHUB_PAT / GITHUB_OAUTH_CLIENT_SECRET / SESSION_SECRET 等)は
+# このファイルには書かない(コミット対象のため)。
+# - ローカル開発: `.dev.vars`(gitignore対象。.env.exampleを元に作成する)に書き、
+#   `wrangler pages dev public` が自動的に読み込む。
+# - 本番(Cloudflare Pages): Cloudflareダッシュボードの Pages プロジェクト設定
+#   > Environment variables でユーザー本人が登録する(このリポジトリのセットアップ対象外)。

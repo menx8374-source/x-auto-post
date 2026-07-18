@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>アフィリエイト商品管理</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="app-header">
+  <h1>アフィリエイト商品管理</h1>
+  <button id="logout-button" class="btn btn-ghost" type="button" hidden>ログアウト</button>
+</header>
+
+<main id="app" class="app-main">
+  <p class="loading">読み込み中...</p>
+</main>
+
+<template id="tpl-login">
+  <section class="card login-card">
+    <p>このページは管理者本人のみアクセスできます。GitHubアカウントでログインしてください。</p>
+    <a class="btn btn-primary" href="/api/auth/login">GitHubでログイン</a>
+  </section>
+</template>
+
+<template id="tpl-product-form">
+  <form id="product-form" class="card product-form">
+    <h2 class="form-title">商品を追加</h2>
+    <p id="form-error" class="form-error" hidden></p>
+
+    <label>
+      商品ID <span class="required">*</span>
+      <input type="text" name="id" required pattern="[a-zA-Z0-9_-]+"
+             placeholder="例: product1(英数字・-・_のみ)">
+    </label>
+
+    <label>
+      商品名 <span class="required">*</span>
+      <input type="text" name="name" required placeholder="商品・サービス名">
+    </label>
+
+    <label>
+      公式サイトURL <span class="required">*</span>
+      <input type="url" name="officialUrl" required placeholder="https://example.com">
+    </label>
+
+    <label>
+      画像URL(任意)
+      <input type="url" name="imageUrl" placeholder="https://example.com/image.png">
+    </label>
+
+    <label>
+      アフィリエイトリンク <span class="required">*</span>
+      <input type="url" name="affiliateUrl" required placeholder="https://px.a8.net/...">
+    </label>
+
+    <label>
+      特長(1行1件、事実ベースのみ) <span class="required">*</span>
+      <textarea name="facts" rows="4" required placeholder="公式サイト・スペック表から確認できる特長を1行ずつ"></textarea>
+    </label>
+
+    <label>
+      カテゴリ(任意)
+      <input type="text" name="category" placeholder="例: ガジェット">
+    </label>
+
+    <label class="checkbox-label">
+      <input type="checkbox" name="enabled">
+      投稿対象として有効にする
+    </label>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">保存</button>
+      <button type="button" id="cancel-form-button" class="btn btn-ghost">キャンセル</button>
+    </div>
+  </form>
+</template>
+
+<script src="app.js" defer></script>
+</body>
+</html>

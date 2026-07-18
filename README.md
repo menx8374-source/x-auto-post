@@ -201,6 +201,24 @@ npm run admin:test-post -- --text="<投稿するテキスト>"
 
 GitHub Actionsから手動実行する場合は[`.github/workflows/admin-tools.yml`](.github/workflows/admin-tools.yml)(`workflow_dispatch`のみ、`schedule`トリガーなし)の「Run workflow」から`action`(`delete-tweet`/`test-post`)と対応する`tweetId`/`text`を指定する。
 
+### アフィリエイト商品管理ページ(admin/、スマホから本人のみアクセス)
+
+`admin/`配下に、アフィリエイト商品(`data/affiliate-products.json`)をスマホから追加・編集・
+有効/無効切り替えできる管理ページを用意している(Cloudflare Pages + Pages Functions、GitHub OAuthで
+本人のみログイン可)。本体のX自動投稿パイプライン(このREADMEの各コマンド、`src/pipeline.ts`等)とは
+実行環境・デプロイ先が完全に独立しており、このページの有無に関わらず自動投稿は影響を受けない。
+
+- 詳細な構成・ローカル開発手順は [`admin/README.md`](admin/README.md) を参照。
+- **Cloudflareアカウント作成・GitHub OAuth App登録・実デプロイ・実ログイン確認はユーザー本人が別途行う**
+  (このリポジトリのセットアップ対象外)。
+- 商品追加時、`admin/`から自動的に `regenerate-redirects.yml`(`docs/go/`配下のリダイレクトページ再生成)
+  ワークフローを起動する。
+- `npm run generate:candidate-hints`(`src/generateCandidateHints.ts`)が、既存の収集ロジック
+  (`collectAndScoreNews()`)を読み取り専用で使い、「最近話題のAI関連ニュース」の参考情報を
+  `data/affiliate-candidate-hints.json` に生成する(実際のアフィリエイト商品・リンクの自動生成はしない)。
+  `admin/`ページの「候補ヒント」欄からこの内容を閲覧できる。手動更新は
+  [`.github/workflows/update-candidate-hints.yml`](.github/workflows/update-candidate-hints.yml) から実行する。
+
 ## 環境変数
 
 `.env.example` をコピーして `.env` を作成し、値を設定する(`.env` はgit管理対象外)。

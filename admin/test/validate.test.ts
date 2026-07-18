@@ -1,0 +1,124 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { isHttpUrl, SAFE_PRODUCT_ID, validateProductInput, toAffiliateProduct } from "../functions/_lib/validate";
+
+test("isHttpUrlはhttp/httpsのURLを許可する", () => {
+  assert.equal(isHttpUrl("https://example.com/foo"), true);
+  assert.equal(isHttpUrl("http://example.com/foo"), true);
+});
+
+test("isHttpUrlはjavascript:等の不正スキームを拒否する(XSS対策)", () => {
+  assert.equal(isHttpUrl("javascript:alert(1)"), false);
+  assert.equal(isHttpUrl("file:///etc/passwd"), false);
+  assert.equal(isHttpUrl("data:text/html,<script>alert(1)</script>"), false);
+});
+
+test("isHttpUrlはパースできない文字列に対してfalseを返す(例外を投げない)", () => {
+  assert.equal(isHttpUrl("not a url"), false);
+  assert.equal(isHttpUrl(""), false);
+});
+
+test("SAFE_PRODUCT_IDは英数字・ハイフン・アンダースコアのみを許可する", () => {
+  assert.equal(SAFE_PRODUCT_ID.test("product-1_A"), true);
+  assert.equal(SAFE_PRODUCT_ID.test("../../evil"), false);
+  assert.equal(SAFE_PRODUCT_ID.test("has space"), false);
+  assert.equal(SAFE_PRODUCT_ID.test("has/slash"), false);
+});
+
+function validProduct(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "product1",
+    name: "テスト商品",
+    officialUrl: "https://example.com",
+    affiliateUrl: "https://affiliate.example.com/p1",
+    facts: ["特長1"],
+    enabled: true,
+    ...overrides,
+  };
+}
+
+test("validateProductInputは正常な入力を受理する(errors=[])", () => {
+  const result = validateProductInput(validProduct());
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.errors, []);
+});
+
+test("validateProductInputは任意項目(imageUrl/category)を省略しても受理する", () => {
+  const result = validateProductInput(validProduct());
+  assert.equal(result.valid, true);
+});
+
+test("validateProductInputはオブジェクトでない入力を拒否する", () => {
+  assert.equal(validateProductInput(null).valid, false);
+  assert.equal(validateProductInput("string").valid, false);
+  assert.equal(validateProductInput([1, 2, 3]).valid, false);
+});
+
+test("validateProductInputは不正な商品ID(パストラバーサル)を拒否する", () => {
+  const result = validateProductInput(validProduct({ id: "../../evil" }));
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((e) => e.includes("id")));
+});
+
+test("validateProductInputはidが空文字/未指定の場合拒否する", () => {
+  assert.equal(validateProductInput(validProduct({ id: "" })).valid, false);
+  const { id, ...rest } = validProduct();
+  assert.equal(validateProductInput(rest).valid, false);
+});
+
+test("validateProductInputはaffiliateUrlがjavascript:の場合拒否する(不正スキーム対策)", () => {
+  const result = validateProductInput(validProduct({ affiliateUrl: "javascript:alert(1)" }));
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((e) => e.includes("affiliateUrl")));
+});
+
+test("validateProductInputはofficialUrlがjavascript:の場合拒否する", () => {
+  const result = validateProductInput(validProduct({ officialUrl: "javascript:alert(1)" }));
+  assert.equal(result.valid, false);
+});
+
+test("validateProductInputはimageUrlを指定する場合、不正スキームを拒否する", () => {
+  const result = validateProductInput(validProduct({ imageUrl: "javascript:alert(1)" }));
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((e) => e.includes("imageUrl")));
+});
+
+test("validateProductInputはimageUrlが正しいhttp/httpsであれば受理する", () => {
+  const result = validateProductInput(validProduct({ imageUrl: "https://example.com/img.png" }));
+  assert.equal(result.valid, true);
+});
+
+test("validateProductInputはfactsが空配列の場合拒否する", () => {
+  const result = validateProductInput(validProduct({ facts: [] }));
+  assert.equal(result.valid, false);
+});
+
+test("validateProductInputはfactsが文字列以外を含む場合拒否する", () => {
+  const result = validateProductInput(validProduct({ facts: ["ok", 123] }));
+  assert.equal(result.valid, false);
+});
+
+test("validateProductInputはenabledがbooleanでない場合拒否する", () => {
+  const result = validateProductInput(validProduct({ enabled: "true" }));
+  assert.equal(result.valid, false);
+  assert.ok(result.errors.some((e) => e.includes("enabled")));
+});
+
+test("validateProductInputはnameが空文字の場合拒否する", () => {
+  const result = validateProductInput(validProduct({ name: "   " }));
+  assert.equal(result.valid, false);
+});
+
+test("toAffiliateProductは任意項目が空の場合フィールド自体を含めない", () => {
+  const product = toAffiliateProduct(validProduct());
+  assert.equal("imageUrl" in product, false);
+  assert.equal("category" in product, false);
+});
+
+test("toAffiliateProductは指定された任意項目を含める", () => {
+  const product = toAffiliateProduct(
+    validProduct({ imageUrl: "https://example.com/img.png", category: "ガジェット" })
+  );
+  assert.equal(product.imageUrl, "https://example.com/img.png");
+  assert.equal(product.category, "ガジェット");
+});

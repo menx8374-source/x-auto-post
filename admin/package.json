@@ -1,0 +1,24 @@
+{
+  "name": "x-auto-post-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "アフィリエイト商品管理ページ(Cloudflare Pages + Pages Functions)。本体のX自動投稿パイプライン(../src)とは独立したサブプロジェクト。",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public --compatibility-date=2026-07-01",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "test": "node --import tsx --test test/**/*.test.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260718.1",
+    "@types/node": "^26.1.1",
+    "tsx": "^4.23.1",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.112.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "sharp@0.34.5": true,
+    "workerd@1.20260714.1": true
+  }
+}

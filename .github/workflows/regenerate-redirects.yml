@@ -1,0 +1,59 @@
+name: アフィリエイトリダイレクトページ再生成(手動実行専用)
+
+# data/affiliate-products.json の内容から docs/go/<productId>.html (静的リダイレクトページ)を
+# 再生成するワークフロー。admin/(アフィリエイト商品管理ページ)が商品データのコミット成功後に
+# GitHub API(workflow_dispatch)経由でこのワークフローを起動する想定だが、手動実行も可能。
+#
+# workflow_dispatchのみ(inputなし)。既存の本番投稿ワークフロー(post.yml/post-affiliate.yml)には
+# 一切触れない。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-redirects:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 履歴コミットステップの `git pull --rebase` が並行実行時にも
+          # リモートの新しいコミットを正しく取り込めるよう、シャロークローンにしない。
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate affiliate redirect pages
+        run: npm run generate:affiliate-redirects
+
+      - name: Commit updated redirect pages
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/go/
+          if git diff --cached --quiet; then
+            echo "no redirect page changes to commit"
+          else
+            git commit -m "chore: regenerate affiliate redirect pages [skip ci]"
+            attempt=1
+            max_attempts=3
+            until git pull --rebase && git push; do
+              if [ "$attempt" -ge "$max_attempts" ]; then
+                echo "rebase/push failed after ${max_attempts} attempts" >&2
+                exit 1
+              fi
+              echo "rebase/push failed (attempt ${attempt}/${max_attempts}), retrying after fetch..."
+              git fetch origin
+              attempt=$((attempt + 1))
+            done
+          fi
