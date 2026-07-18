@@ -1,0 +1,2545 @@
+diff --git a/.github/workflows/post-affiliate.yml b/.github/workflows/post-affiliate.yml
+new file mode 100644
+index 0000000..afc02de
+--- /dev/null
++++ b/.github/workflows/post-affiliate.yml
+@@ -0,0 +1,166 @@
++name: X アフィリエイト投稿実行(外部cron経由のworkflow_dispatch)
++
++# アフィリエイト投稿(1日1回、既定19:00 JST)専用のワークフロー。既存のAIニュース投稿
++# (.github/workflows/post.yml)とは完全に独立しており、実行内容・投稿履歴ファイル
++# (data/history/affiliate-post-history.json)も別のため、互いのcron起動・冪等性判定に影響しない。
++# 実行内容は `npm run post:affiliate -- --auto-slot`(本番投稿)相当。
++# 手動実行時は mode=dryrun を選べば実際にXへは投稿せず動作確認だけできる。
++#
++# 外部cron側の設定手順は docs/cron-setup.md の既存手順に準じ、アフィリエイト用ジョブを追加する
++# (叩くworkflow名を "X アフィリエイト投稿実行..." に変える以外は同じ手順)。
++
++on:
++  workflow_dispatch:
++    inputs:
++      mode:
++        description: "post=実際にXへ投稿する / dryrun=投稿せず動作確認のみ(手動テスト用)"
++        type: choice
++        required: false
++        default: "post"
++        options:
++          - post
++          - dryrun
++      account:
++        description: "複数アカウント対応: 使用するアカウントID(src/accounts.tsに登録済みのもの)。省略時は既存のデフォルトアカウント"
++        type: string
++        required: false
++        default: "ai-news"
++
++  # バックアップ用途のみ(主経路ではない)。post.ymlと同じ理由で、外部cronサービスからの
++  # workflow_dispatchを主経路とし、scheduleはそれが不発だった場合の保険として少し後に追試行する。
++  schedule:
++    - cron: "5 10 * * *" # アフィリエイト枠(19:00 JST)の少し後 = UTC10:05。バックアップ用。
++
++permissions:
++  contents: write
++
++jobs:
++  run-affiliate-posting-pipeline:
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v4
++        with:
++          fetch-depth: 0 # 履歴コミットステップの `git pull --rebase` が並行実行時にも
++          # リモートの新しいコミットを正しく取り込めるよう、シャロークローンにしない。
++
++      - name: Setup Node.js
++        uses: actions/setup-node@v4
++        with:
++          node-version: "24"
++          cache: "npm"
++
++      - name: Install dependencies
++        run: npm ci
++
++      - name: Run affiliate posting pipeline
++        env:
++          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
++          ANTHROPIC_MODEL: ${{ secrets.ANTHROPIC_MODEL }}
++          X_API_KEY: ${{ secrets.X_API_KEY }}
++          X_API_SECRET: ${{ secrets.X_API_SECRET }}
++          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
++          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
++          POST_RECOVERY_WINDOW_HOURS: ${{ secrets.POST_RECOVERY_WINDOW_HOURS }}
++          # アフィリエイト投稿専用の運用パラメータ(任意。未設定ならコード側の既定値を使う)
++          AFFILIATE_POST_TIME: ${{ secrets.AFFILIATE_POST_TIME }}
++          AFFILIATE_MAX_POSTS_PER_PRODUCT: ${{ secrets.AFFILIATE_MAX_POSTS_PER_PRODUCT }}
++          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
++          # workflow_dispatch の inputs は type: choice で選択肢を制限しているが、この制限は
++          # GitHub Web UIの「Run workflow」フォームでのみ強制され、REST API(外部cron連携の呼び出し経路)
++          # 経由では任意の文字列を送信できてしまう。${{ }} をrun:に直接埋め込むとテンプレート展開が
++          # シェル実行前に行われスクリプトインジェクションの原因になるため、既存のpost.ymlと同じく
++          # 必ずenv:経由の環境変数として受け渡し、シェル側でcase文により許可リスト検証する。
++          MODE_INPUT: ${{ inputs.mode }}
++          ACCOUNT_INPUT: ${{ inputs.account }}
++        run: |
++          set -e
++          MODE="${MODE_INPUT:-post}"
++          ACCOUNT="${ACCOUNT_INPUT:-ai-news}"
++
++          case "$MODE" in
++            post|dryrun) ;;
++            *)
++              echo "invalid mode input: $MODE" >&2
++              exit 1
++              ;;
++          esac
++
++          # 現在src/accounts.tsに登録済みのアカウントIDのみ許可する(既定のデフォルトアカウントのみ)。
++          case "$ACCOUNT" in
++            ai-news) ;;
++            *)
++              echo "invalid account input: $ACCOUNT" >&2
++              exit 1
++              ;;
++          esac
++
++          NPM_SCRIPT="post:affiliate"
++          if [ "$MODE" = "dryrun" ]; then
++            NPM_SCRIPT="dryrun:affiliate"
++          fi
++          echo "mode=$MODE account=$ACCOUNT npmScript=$NPM_SCRIPT"
++          npm run "$NPM_SCRIPT" -- --auto-slot --account="$ACCOUNT"
++
++      # 実行結果(成功/失敗/スキップ)をGitHub Actionsのジョブサマリーに残す(post.ymlと同じ方式)。
++      - name: Write job summary
++        if: ${{ !cancelled() }}
++        env:
++          MODE_INPUT: ${{ inputs.mode }}
++        run: |
++          set -e
++          MODE="${MODE_INPUT:-post}"
++          RESULT_FILE="data/output/latest-affiliate-publish.json"
++          if [ "$MODE" = "dryrun" ]; then
++            RESULT_FILE="data/output/latest-affiliate-dryrun.json"
++          fi
++          RESULT_FILE="$RESULT_FILE" MODE="$MODE" node -e "
++            const fs = require('fs');
++            const file = process.env.RESULT_FILE;
++            let summary = '## Xアフィリエイト投稿パイプライン実行結果\n\n';
++            try {
++              const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
++              summary += '- 実行日時: ' + (data.ranAt ?? '不明') + '\n';
++              summary += '- モード: ' + process.env.MODE + '\n';
++              if (data.accountId) summary += '- アカウント: ' + data.accountId + '\n';
++              summary += '- 成功: ' + data.success + '\n';
++              if (data.stage) summary += '- 停止段階: ' + data.stage + '\n';
++              if (data.skipReason) summary += '- スキップ理由: ' + data.skipReason + '\n';
++              if (data.error) summary += '- エラー: ' + data.error + '\n';
++              if (data.product) summary += '- 選定商品: ' + data.product.name + '\n';
++              if (data.publishResult) {
++                summary += '- 投稿結果: ' + (data.publishResult.posted ? '成功' : '未投稿/失敗') + '\n';
++                summary += '- 詳細: ' + data.publishResult.detail + '\n';
++              }
++            } catch (e) {
++              summary += '結果ファイル(' + file + ')の読み込みに失敗しました: ' + e.message + '\n';
++            }
++            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
++          "
++
++      # data/history/affiliate-post-history.jsonはGitHub Actionsの実行ごとに使い捨てられるチェックアウトの
++      # 中でしか更新されないため、コミット・プッシュしてリポジトリへ永続化しない限り、次回実行が
++      # ローテーション・冪等性判定を行えない(post.ymlと同じ理由)。
++      - name: Commit updated affiliate post history
++        if: ${{ !cancelled() }}
++        run: |
++          set -e
++          git config user.name "github-actions[bot]"
++          git config user.email "github-actions[bot]@users.noreply.github.com"
++          git add data/history/
++          if git diff --cached --quiet; then
++            echo "no history changes to commit"
++          else
++            git commit -m "chore: update affiliate post history [skip ci]"
++            attempt=1
++            max_attempts=3
++            until git pull --rebase && git push; do
++              if [ "$attempt" -ge "$max_attempts" ]; then
++                echo "rebase/push failed after ${max_attempts} attempts" >&2
++                exit 1
++              fi
++              echo "rebase/push failed (attempt ${attempt}/${max_attempts}), retrying after fetch..."
++              git fetch origin
++              attempt=$((attempt + 1))
++            done
++          fi
+diff --git a/src/affiliateHistory.ts b/src/affiliateHistory.ts
+new file mode 100644
+index 0000000..77b7d2d
+--- /dev/null
++++ b/src/affiliateHistory.ts
+@@ -0,0 +1,175 @@
++/**
++ * アフィリエイト投稿専用の投稿状態・履歴管理。
++ *
++ * AIニュースの投稿履歴(`data/history/post-history.json`、src/postHistory.ts)とは完全に分離した
++ * 専用ファイル(`data/history/affiliate-post-history.json`)を使う。これにより:
++ * - 同一商品のローテーション上限判定(countPostedByProduct/lastPostedAtByProduct)
++ * - アフィリエイト投稿専用の同日重複投稿防止(冪等性、hasPostedAffiliateSlotOnDate)
++ * が、既存のAIニュースの`hasPostedSlotOnDate`等のロジックと独立に動作する。
++ *
++ * JST基準の日付キー変換(toDateKey)は、UTC/JST日境界のバグ(Sprint 7で実害確認済み)を再発させない
++ * ため、postHistory.tsのtoDateKeyをそのまま再利用する(ロジックを複製しない)。
++ */
++import { randomUUID } from "node:crypto";
++import { mkdir, readFile, writeFile } from "node:fs/promises";
++import path from "node:path";
++import { log } from "./logger.js";
++import { toDateKey } from "./postHistory.js";
++
++export const DEFAULT_AFFILIATE_HISTORY_FILE = path.join(
++  process.cwd(),
++  "data",
++  "history",
++  "affiliate-post-history.json"
++);
++
++export interface AffiliatePostHistoryEntry {
++  /** エントリの一意識別子。選定時に発行し、投稿完了後に同じidでupdateAffiliateHistoryEntry()から結果を反映する */
++  id?: string;
++  /** 対象商品のid(data/affiliate-products.jsonのAffiliateProduct.id) */
++  productId: string;
++  /** 商品名(ログ・確認用。商品情報が後から変更・削除されても履歴側の表示が壊れないようスナップショットとして保持) */
++  productName: string;
++  /** 投稿枠(通常はsrc/config.tsのAFFILIATE_SLOT_ID="affiliate") */
++  slot?: string;
++  /** この商品が投稿対象として選定された日時(ISO8601) */
++  selectedAt: string;
++  /** 実際に投稿(全ツイート送信)が完了した日時(ISO8601)。status:"posted"のときのみ設定される */
++  postedAt?: string;
++  /** 投稿できたツイートIDの配列(投稿順) */
++  tweetIds?: string[];
++  /** エントリの状態。"selected"(選定のみ) / "posted"(投稿完了) / "failed"(投稿試行して失敗) */
++  status?: "selected" | "posted" | "failed";
++}
++
++/**
++ * 履歴ファイルを読み込む。ファイルが存在しない場合(初回実行)は空配列を返す。
++ * ファイルが壊れている(パース失敗)場合は、ローテーション・冪等性判定を誤らせるより安全側に倒すため
++ * エラーとして投げる(src/postHistory.tsのloadHistoryと同じ方針)。
++ */
++export async function loadAffiliateHistory(
++  filePath: string = DEFAULT_AFFILIATE_HISTORY_FILE
++): Promise<AffiliatePostHistoryEntry[]> {
++  let raw: string;
++  try {
++    raw = await readFile(filePath, "utf-8");
++  } catch (err) {
++    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
++      return [];
++    }
++    throw err;
++  }
++
++  try {
++    const parsed = JSON.parse(raw);
++    if (!Array.isArray(parsed)) {
++      throw new Error("affiliate history file does not contain a JSON array");
++    }
++    return parsed as AffiliatePostHistoryEntry[];
++  } catch (err) {
++    const message = err instanceof Error ? err.message : String(err);
++    throw new Error(`failed to parse affiliate post history file (${filePath}): ${message}`);
++  }
++}
++
++/**
++ * 選定した商品を履歴ファイルに追記する(既存分は保持)。idを新規発行して返すため、投稿完了後に
++ * updateAffiliateHistoryEntry(id, ...) で結果を反映できる。statusを指定しない場合は"selected"として記録する。
++ */
++export async function appendAffiliateHistoryEntry(
++  entry: Omit<AffiliatePostHistoryEntry, "id">,
++  filePath: string = DEFAULT_AFFILIATE_HISTORY_FILE
++): Promise<AffiliatePostHistoryEntry> {
++  const history = await loadAffiliateHistory(filePath);
++  const fullEntry: AffiliatePostHistoryEntry = {
++    ...entry,
++    status: entry.status ?? "selected",
++    id: randomUUID(),
++  };
++  history.push(fullEntry);
++
++  await mkdir(path.dirname(filePath), { recursive: true });
++  await writeFile(filePath, JSON.stringify(history, null, 2), "utf-8");
++  log.info(`recorded affiliate selection into post history: ${filePath}`, {
++    productId: entry.productId,
++    slot: entry.slot,
++  });
++
++  return fullEntry;
++}
++
++export type AffiliateHistoryUpdate = Partial<Pick<AffiliatePostHistoryEntry, "status" | "postedAt" | "tweetIds" | "slot">>;
++
++/**
++ * idで指定した既存の履歴エントリを更新する。投稿(publish)完了後に、選定時点で
++ * appendAffiliateHistoryEntry() が書き込んだエントリへ実際の投稿結果を反映するために使う。
++ * 対象idが見つからない場合は書き込まず警告ログのみ残し、呼び出し側の処理は継続させる。
++ */
++export async function updateAffiliateHistoryEntry(
++  id: string,
++  updates: AffiliateHistoryUpdate,
++  filePath: string = DEFAULT_AFFILIATE_HISTORY_FILE
++): Promise<AffiliatePostHistoryEntry | null> {
++  const history = await loadAffiliateHistory(filePath);
++  const index = history.findIndex((h) => h.id === id);
++  if (index === -1) {
++    log.warn("affiliate post history entry not found for update; skipping", { id, filePath });
++    return null;
++  }
++
++  const updated: AffiliatePostHistoryEntry = { ...history[index], ...updates };
++  history[index] = updated;
++
++  await mkdir(path.dirname(filePath), { recursive: true });
++  await writeFile(filePath, JSON.stringify(history, null, 2), "utf-8");
++  log.info("updated affiliate post history entry with publish result", {
++    id,
++    status: updated.status,
++    tweetIds: updated.tweetIds,
++  });
++
++  return updated;
++}
++
++/**
++ * 指定した投稿枠(slot)が、referenceDateの属する日(JST基準)に既に投稿済み(status:"posted")かどうかを判定する。
++ * アフィリエイト投稿専用の同日重複投稿防止(冪等性)に使う。AIニュース側のhasPostedSlotOnDateとは
++ * 独立(専用の履歴ファイルを見るため)。
++ */
++export function hasPostedAffiliateSlotOnDate(
++  history: AffiliatePostHistoryEntry[],
++  slot: string,
++  referenceDate: Date = new Date()
++): boolean {
++  const targetDay = toDateKey(referenceDate.toISOString());
++  return history.some((h) => {
++    if (h.slot !== slot || h.status !== "posted") {
++      return false;
++    }
++    const postedDay = h.postedAt ? toDateKey(h.postedAt) : undefined;
++    return postedDay === targetDay;
++  });
++}
++
++/** 商品ごとの投稿済み(status:"posted")回数を集計する(ローテーション上限判定に使う) */
++export function countPostedByProduct(history: AffiliatePostHistoryEntry[]): Map<string, number> {
++  const counts = new Map<string, number>();
++  for (const h of history) {
++    if (h.status !== "posted") continue;
++    counts.set(h.productId, (counts.get(h.productId) ?? 0) + 1);
++  }
++  return counts;
++}
++
++/** 商品ごとの最終投稿日時(status:"posted"のみ、ISO8601文字列)を返す。未投稿の商品は含まれない */
++export function lastPostedAtByProduct(history: AffiliatePostHistoryEntry[]): Map<string, string> {
++  const lastPosted = new Map<string, string>();
++  for (const h of history) {
++    if (h.status !== "posted" || !h.postedAt) continue;
++    const current = lastPosted.get(h.productId);
++    if (!current || new Date(h.postedAt).getTime() > new Date(current).getTime()) {
++      lastPosted.set(h.productId, h.postedAt);
++    }
++  }
++  return lastPosted;
++}
+diff --git a/src/affiliatePipeline.ts b/src/affiliatePipeline.ts
+new file mode 100644
+index 0000000..a06cb13
+--- /dev/null
++++ b/src/affiliatePipeline.ts
+@@ -0,0 +1,283 @@
++/**
++ * アフィリエイト投稿の共通パイプライン: 商品選定→紹介文生成→分割→リンク付与→(投稿 or ドライラン)。
++ *
++ * 設計はAIニュースの共通パイプライン(src/pipeline.ts)を踏襲しつつ、完全に独立したモジュールとして
++ * 実装する(既存のrunPostingPipelineは一切変更しない)。差し替え点(publish関数)の考え方も同じ:
++ * - ドライラン: `dryRunAffiliatePublish`(送信せずログに残すだけ)
++ * - 本番投稿: `createXApiPublishForAffiliateAccount`(src/affiliateXPublish.ts)
++ */
++import { log } from "./logger.js";
++import { loadAffiliateProducts, type AffiliateProduct } from "./affiliateProducts.js";
++import { selectAffiliateProduct, type AffiliateSelectionResult } from "./selectAffiliateProduct.js";
++import { generateAffiliatePostText, type AffiliatePostGenerationResult } from "./generateAffiliatePost.js";
++import { composeAffiliateThread } from "./affiliateThread.js";
++import { assertValidConfig } from "./config.js";
++import { getAccountProfile, type AccountProfile } from "./accounts.js";
++import {
++  loadAffiliateHistory,
++  appendAffiliateHistoryEntry,
++  updateAffiliateHistoryEntry,
++  hasPostedAffiliateSlotOnDate,
++  type AffiliatePostHistoryEntry,
++  type AffiliateHistoryUpdate,
++} from "./affiliateHistory.js";
++import { isWithinRecoveryWindow, getConfiguredRecoveryWindowHours } from "./postHistory.js";
++import type { ThreadTweet } from "./threadSplit.js";
++import type { PublishResult } from "./pipeline.js";
++
++/** 投稿予定ツイート配列を実際に送信する(または送信しない)役目を持つ関数。本番/ドライランの唯一の差し替え点 */
++export type AffiliatePublishFn = (tweets: ThreadTweet[], product: AffiliateProduct) => Promise<PublishResult>;
++
++/** ドライラン用のpublish実装: 何も送信せず、送信しなかった旨だけを返す */
++export const dryRunAffiliatePublish: AffiliatePublishFn = async (tweets, product) => {
++  log.info("dry run: not sending affiliate tweets to X", {
++    tweetCount: tweets.length,
++    productId: product.id,
++  });
++  return { posted: false, detail: "ドライランのためXへは送信していません" };
++};
++
++/**
++ * パイプライン各段が使う外部依存。デフォルトは実I/O(実ファイル・実API)だが、
++ * テストではこの一部/全部をモックに差し替えて、外部APIなしで検証できる。
++ */
++export interface AffiliatePipelineDependencies {
++  loadProducts: () => Promise<AffiliateProduct[]>;
++  loadHistory: () => Promise<AffiliatePostHistoryEntry[]>;
++  select: (
++    products: AffiliateProduct[],
++    history: AffiliatePostHistoryEntry[]
++  ) => AffiliateSelectionResult | Promise<AffiliateSelectionResult>;
++  generate: (product: AffiliateProduct) => Promise<AffiliatePostGenerationResult>;
++  buildThread: (text: string, affiliateUrl: string) => ThreadTweet[];
++  appendHistory: (entry: Omit<AffiliatePostHistoryEntry, "id">) => Promise<AffiliatePostHistoryEntry>;
++  updateHistory: (id: string, updates: AffiliateHistoryUpdate) => Promise<AffiliatePostHistoryEntry | null>;
++}
++
++function buildDefaultDeps(account: AccountProfile): AffiliatePipelineDependencies {
++  return {
++    loadProducts: () => loadAffiliateProducts(),
++    loadHistory: () => loadAffiliateHistory(),
++    select: (products, history) => selectAffiliateProduct(products, history),
++    generate: (product) => generateAffiliatePostText(product, undefined, account),
++    buildThread: (text, affiliateUrl) => composeAffiliateThread(text, affiliateUrl),
++    appendHistory: (entry) => appendAffiliateHistoryEntry(entry),
++    updateHistory: (id, updates) => updateAffiliateHistoryEntry(id, updates),
++  };
++}
++
++export type AffiliatePipelineStage = "select" | "generate" | "thread" | "publish" | "skipped" | "done";
++
++export interface AffiliatePipelineResult {
++  success: boolean;
++  /** パイプラインが最後に到達した/停止した段階 */
++  stage: AffiliatePipelineStage;
++  /** success:falseの場合の理由(ログ・出力用) */
++  error?: string;
++  /** stage:"skipped"の場合の理由の種別 */
++  skipReason?: "already-posted" | "outside-recovery-window" | "no-eligible-product";
++  product?: AffiliateProduct;
++  selectionReason?: string;
++  text?: string;
++  tweets?: ThreadTweet[];
++  /** 投稿履歴(ローテーション・冪等性判定用)に書き込んだかどうか */
++  historyWritten: boolean;
++  publishResult?: PublishResult;
++  /** 実際に使用したアカウントID(省略指定時に解決されたデフォルトアカウントも含む) */
++  accountId: string;
++}
++
++export interface RunAffiliatePipelineOptions {
++  /**
++   * 選定結果を投稿履歴(ローテーション・冪等性判定用)に書き込むかどうか。
++   * ドライランでは既定でfalseにすることで、繰り返し検証しても履歴を汚さない。
++   */
++  writeHistory: boolean;
++  /** 投稿予定ツイートを実際に送信する(またはしない)関数。本番/ドライランの差し替え点 */
++  publish: AffiliatePublishFn;
++  /** テスト用の依存差し替え(省略時は実I/Oを使う) */
++  deps?: Partial<AffiliatePipelineDependencies>;
++  /**
++   * 投稿枠識別子(通常はsrc/config.tsのAFFILIATE_SLOT_ID="affiliate")。
++   * 指定すると、同一枠・同一日の二重投稿防止(冪等性)チェックが有効になる。
++   */
++  slot?: string;
++  /**
++   * slot指定時、その枠の本来の予定時刻(ISO8601)。指定すると、不発リカバリの許容範囲チェックが
++   * 有効になる(範囲外ならstage:"skipped"で停止する)。省略時はこのチェックをスキップする。
++   */
++  scheduledAt?: string;
++  /** 不発リカバリの許容範囲(時間)。省略時はpostHistory.DEFAULT_RECOVERY_WINDOW_HOURS(環境変数上書き可)を使う */
++  recoveryWindowHours?: number;
++  /** 使用するアカウントのid(src/accounts.tsに登録済みのもの)。省略時はデフォルトアカウント */
++  accountId?: string;
++  /** テスト用: 「現在時刻」を注入する。省略時は`new Date()`(実際の壁時計時刻)を使う */
++  now?: Date;
++}
++
++/**
++ * 商品選定→紹介文生成→分割→リンク付与→(投稿 or ドライラン)を1本で実行する共通パイプライン。
++ * AIニュースの共通パイプライン(src/pipeline.ts)とは完全に独立しており、投稿履歴ファイルも別のため、
++ * 互いの冪等性判定・ローテーション状態に影響しない。
++ */
++export async function runAffiliatePostingPipeline(
++  options: RunAffiliatePipelineOptions
++): Promise<AffiliatePipelineResult> {
++  const account = getAccountProfile(options.accountId);
++
++  // 挙動系設定(AIニュース分も含む)の不正値を実行の最初に検知する(壊れた設定のまま進めない)。
++  assertValidConfig();
++
++  const deps = { ...buildDefaultDeps(account), ...options.deps };
++
++  log.info("affiliate posting pipeline started", {
++    accountId: account.id,
++    slot: options.slot,
++    scheduledAt: options.scheduledAt,
++    writeHistory: options.writeHistory,
++  });
++
++  const history = await deps.loadHistory();
++
++  if (options.slot) {
++    const now = options.now ?? new Date();
++    // AIニュース側と同じ理由(深夜跨ぎのルックバック時のJST暦日ずれ)で、referenceDateは
++    // scheduledAt(枠の予定時刻)を優先する。scheduledAt未指定時はnowにフォールバックする。
++    const referenceDate = options.scheduledAt ? new Date(options.scheduledAt) : now;
++
++    if (hasPostedAffiliateSlotOnDate(history, options.slot, referenceDate)) {
++      const reason = `本日「${options.slot}」枠は既に投稿済みのためスキップします(1日1投稿の冪等性)`;
++      log.warn("affiliate pipeline stopped: slot already posted today (idempotency)", { slot: options.slot });
++      return {
++        success: false,
++        stage: "skipped",
++        skipReason: "already-posted",
++        error: reason,
++        historyWritten: false,
++        accountId: account.id,
++      };
++    }
++
++    if (options.scheduledAt) {
++      const scheduled = new Date(options.scheduledAt);
++      const toleranceHours = options.recoveryWindowHours ?? getConfiguredRecoveryWindowHours();
++      if (!isWithinRecoveryWindow(scheduled, now, toleranceHours)) {
++        const reason = `「${options.slot}」枠の予定時刻(${options.scheduledAt})から許容範囲(${toleranceHours}時間)を超えているため、不発リカバリとしての投稿は行いません`;
++        log.warn("affiliate pipeline stopped: outside recovery window for missed slot trigger", {
++          slot: options.slot,
++          scheduledAt: options.scheduledAt,
++          toleranceHours,
++        });
++        return {
++          success: false,
++          stage: "skipped",
++          skipReason: "outside-recovery-window",
++          error: reason,
++          historyWritten: false,
++          accountId: account.id,
++        };
++      }
++    }
++  }
++
++  const products = await deps.loadProducts();
++  const selection = await deps.select(products, history);
++
++  if (!selection.selected) {
++    log.warn("affiliate pipeline stopped: no eligible product to post", { reason: selection.reason });
++    return {
++      success: false,
++      stage: "select",
++      skipReason: "no-eligible-product",
++      error: selection.reason,
++      historyWritten: false,
++      accountId: account.id,
++    };
++  }
++
++  log.info("selected affiliate product for posting", {
++    productId: selection.selected.id,
++    name: selection.selected.name,
++    reason: selection.reason,
++  });
++
++  const generation = await deps.generate(selection.selected);
++  if (!generation.success) {
++    log.error("affiliate pipeline stopped: post text generation failed", { error: generation.error });
++    return {
++      success: false,
++      stage: "generate",
++      error: generation.error,
++      product: selection.selected,
++      selectionReason: selection.reason,
++      historyWritten: false,
++      accountId: account.id,
++    };
++  }
++
++  const tweets = deps.buildThread(generation.text, selection.selected.affiliateUrl);
++
++  let historyWritten = false;
++  let historyEntryId: string | undefined;
++  if (options.writeHistory) {
++    const entry = await deps.appendHistory({
++      productId: selection.selected.id,
++      productName: selection.selected.name,
++      selectedAt: new Date().toISOString(),
++      slot: options.slot,
++    });
++    historyWritten = true;
++    historyEntryId = entry.id;
++  } else {
++    log.info("not recording selection into affiliate post history (writeHistory=false)");
++  }
++
++  const publishResult = await options.publish(tweets, selection.selected);
++
++  if (publishResult.posted) {
++    log.info("affiliate pipeline finished: posted successfully", {
++      productId: selection.selected.id,
++      tweetIds: publishResult.tweetIds,
++      postedAt: publishResult.postedAt,
++    });
++  } else if (publishResult.error) {
++    log.error("affiliate pipeline finished: posting failed", {
++      productId: selection.selected.id,
++      error: publishResult.error,
++      detail: publishResult.detail,
++    });
++  } else {
++    log.info("affiliate pipeline finished: not posted (dry run)", {
++      productId: selection.selected.id,
++      detail: publishResult.detail,
++    });
++  }
++
++  if (historyWritten && historyEntryId) {
++    if (publishResult.posted) {
++      await deps.updateHistory(historyEntryId, {
++        status: "posted",
++        postedAt: publishResult.postedAt ?? new Date().toISOString(),
++        tweetIds: publishResult.tweetIds ?? [],
++        slot: options.slot,
++      });
++    } else if (publishResult.error) {
++      await deps.updateHistory(historyEntryId, {
++        status: "failed",
++        slot: options.slot,
++      });
++    }
++  }
++
++  return {
++    success: true,
++    stage: "done",
++    product: selection.selected,
++    selectionReason: selection.reason,
++    text: generation.text,
++    tweets,
++    historyWritten,
++    publishResult,
++    accountId: account.id,
++  };
++}
+diff --git a/src/affiliateProducts.ts b/src/affiliateProducts.ts
+new file mode 100644
+index 0000000..c7ad35f
+--- /dev/null
++++ b/src/affiliateProducts.ts
+@@ -0,0 +1,70 @@
++/**
++ * アフィリエイト投稿用の商品情報。
++ *
++ * `data/affiliate-products.json`(git管理対象)に、ユーザーが公式情報をもとに手動で商品を追加する
++ * 想定のファイル。`facts`(事実ベースの特長)はAIが自動生成するものではなく、ユーザーが公式サイト等の
++ * 一次情報から手動で書く前提(実体験・実利用の捏造を避けるため)。
++ *
++ * 初期状態は空配列。商品が0件でもエラーにはせず、呼び出し側(選定ロジック)が
++ * 「投稿対象なし」として安全にスキップできるようにする(既存のF2「有効な候補が0件」と同じ設計思想)。
++ */
++import { readFile } from "node:fs/promises";
++import path from "node:path";
++import { log } from "./logger.js";
++
++export interface AffiliateProduct {
++  /** 一意識別子(ローテーション・投稿履歴の紐付けキー) */
++  id: string;
++  /** 商品・サービス名 */
++  name: string;
++  /** 公式サイトURL */
++  officialUrl: string;
++  /** アフィリエイトリンク(ユーザーが実在のアフィリエイトプログラムから手動で取得して入力する) */
++  affiliateUrl: string;
++  /** 事実ベースの特長・スペックの箇条書き(ユーザーが公式情報から手動で記入する。AIは書かない) */
++  facts: string[];
++  /** カテゴリ(任意、分類・ログ確認用) */
++  category?: string;
++  /** trueの場合のみ投稿対象に含める */
++  enabled: boolean;
++}
++
++export const DEFAULT_AFFILIATE_PRODUCTS_FILE = path.join(process.cwd(), "data", "affiliate-products.json");
++
++/**
++ * 商品情報ファイルを読み込む。
++ * ファイルが存在しない場合は「商品が未登録」として空配列を返す(エラーにしない)。
++ * ファイルの中身がJSON配列でない・パースできない場合は、壊れた設定のまま投稿処理へ進めないため
++ * エラーを投げる(loadHistory/loadAffiliateHistoryと同じ「壊れたデータは安全側に倒す」方針)。
++ */
++export async function loadAffiliateProducts(
++  filePath: string = DEFAULT_AFFILIATE_PRODUCTS_FILE
++): Promise<AffiliateProduct[]> {
++  let raw: string;
++  try {
++    raw = await readFile(filePath, "utf-8");
++  } catch (err) {
++    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
++      log.warn("affiliate products file not found; treating as empty product list", { filePath });
++      return [];
++    }
++    throw err;
++  }
++
++  let parsed: unknown;
++  try {
++    parsed = JSON.parse(raw);
++  } catch (err) {
++    const message = err instanceof Error ? err.message : String(err);
++    throw new Error(`アフィリエイト商品ファイル(${filePath})のJSONパースに失敗しました: ${message}`);
++  }
++  if (!Array.isArray(parsed)) {
++    throw new Error(`アフィリエイト商品ファイル(${filePath})はJSON配列である必要があります`);
++  }
++  return parsed as AffiliateProduct[];
++}
++
++/** enabled:trueの商品のみを対象にする */
++export function filterEnabledProducts(products: AffiliateProduct[]): AffiliateProduct[] {
++  return products.filter((p) => p.enabled === true);
++}
+diff --git a/src/affiliateThread.ts b/src/affiliateThread.ts
+new file mode 100644
+index 0000000..59efac2
+--- /dev/null
++++ b/src/affiliateThread.ts
+@@ -0,0 +1,43 @@
++/**
++ * アフィリエイト投稿用のスレッド組み立て。
++ *
++ * 文字数上限厳守・スレッド分割は既存のsrc/threadSplit.ts(splitIntoBodyTweets)・
++ * src/tweetLength.ts(calculateTweetLength)をそのまま再利用する(重複実装しない)。
++ * リンクツイートの文言のみアフィリエイト用(商品ページへのリンク)に差し替える。
++ */
++import { calculateTweetLength } from "./tweetLength.js";
++import { splitIntoBodyTweets, MAX_BODY_TWEETS, type ThreadTweet } from "./threadSplit.js";
++
++/** アフィリエイトリンクを含むリンクツイートの本文を組み立てる */
++export function buildAffiliateLinkTweetText(affiliateUrl: string): string {
++  return `商品ページ: ${affiliateUrl}`;
++}
++
++export interface ComposeAffiliateThreadOptions {
++  maxBodyTweets?: number;
++}
++
++/**
++ * 生成済み本文とアフィリエイトリンクから、投稿予定のツイート配列(本文N件+リンク1件)を組み立てる。
++ * 本文側はURLを含まないため文字数計算に影響せず、末尾に必ずアフィリエイトリンクツイートを付与する
++ * (「投稿の末尾にアフィリエイトリンクを含める」という要件を、既存のリンクツイート付与パターンに揃えて実装)。
++ */
++export function composeAffiliateThread(
++  bodyText: string,
++  affiliateUrl: string,
++  options: ComposeAffiliateThreadOptions = {}
++): ThreadTweet[] {
++  const bodyTexts = splitIntoBodyTweets(bodyText, options.maxBodyTweets ?? MAX_BODY_TWEETS);
++  const parts: { text: string; kind: "body" | "link" }[] = bodyTexts.map((text) => ({
++    text,
++    kind: "body" as const,
++  }));
++  parts.push({ text: buildAffiliateLinkTweetText(affiliateUrl), kind: "link" as const });
++
++  return parts.map((p, i) => ({
++    index: i + 1,
++    text: p.text,
++    charLength: calculateTweetLength(p.text),
++    kind: p.kind,
++  }));
++}
+diff --git a/src/affiliateXPublish.ts b/src/affiliateXPublish.ts
+new file mode 100644
+index 0000000..dad2763
+--- /dev/null
++++ b/src/affiliateXPublish.ts
+@@ -0,0 +1,111 @@
++/**
++ * アフィリエイト投稿のスレッド(ThreadTweet[])を実際にX API v2へ投稿する。
++ *
++ * X認証・レート制限リトライ・スレッド連結のロジックは既存のsrc/xPublish.tsの実装
++ * (createXClient/postWithRateLimitRetry/DEFAULT_RATE_LIMIT_RETRY_POLICY)をそのまま再利用し、
++ * このファイルはアフィリエイト投稿の型(AffiliatePublishFn)への薄い適合層のみを持つ
++ * (OGP画像添付はアフィリエイト投稿では行わないため、その分だけ既存のxApiPublishより単純)。
++ */
++import { log } from "./logger.js";
++import type { ThreadTweet } from "./threadSplit.js";
++import type { PublishResult } from "./pipeline.js";
++import type { AffiliateProduct } from "./affiliateProducts.js";
++import type { AffiliatePublishFn } from "./affiliatePipeline.js";
++import {
++  createXClient,
++  postWithRateLimitRetry,
++  DEFAULT_RATE_LIMIT_RETRY_POLICY,
++  type RateLimitRetryPolicy,
++  type XPostClient,
++} from "./xPublish.js";
++import { getAccountProfile, type AccountProfile } from "./accounts.js";
++
++type SleepFn = (ms: number) => Promise<void>;
++const defaultSleep: SleepFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
++
++/**
++ * AffiliatePublishFn(src/affiliatePipeline.tsの差し替え点)を、指定したXクライアント・リトライ方針で
++ * 組み立てる。引数省略時は環境変数から構築した実クライアント(未設定ならnull)・既定のリトライ方針を使う。
++ * テストではモッククライアントとno-opのsleepを注入して、実ネットワーク・実待機なしで検証する。
++ */
++export function createXApiPublishForAffiliate(
++  client: XPostClient | null = createXClient(),
++  retryPolicy: RateLimitRetryPolicy = DEFAULT_RATE_LIMIT_RETRY_POLICY,
++  sleep: SleepFn = defaultSleep
++): AffiliatePublishFn {
++  return async (tweets: ThreadTweet[], product: AffiliateProduct): Promise<PublishResult> => {
++    if (!client) {
++      const error =
++        "X API認証情報(X_API_KEY/X_API_SECRET/X_ACCESS_TOKEN/X_ACCESS_SECRET)が未設定のため投稿できません";
++      log.error(error, { productId: product.id });
++      return { posted: false, detail: error, tweetIds: [], error };
++    }
++
++    const postedIds: string[] = [];
++    let previousTweetId: string | undefined;
++
++    for (const tweet of tweets) {
++      const replyToTweetId = previousTweetId;
++      try {
++        const posted = await postWithRateLimitRetry(
++          client,
++          tweet.text,
++          replyToTweetId,
++          tweet.index,
++          retryPolicy,
++          sleep
++        );
++        postedIds.push(posted.id);
++        previousTweetId = posted.id;
++        log.info("posted affiliate tweet to X", {
++          index: tweet.index,
++          total: tweets.length,
++          tweetId: posted.id,
++          replyTo: replyToTweetId,
++        });
++      } catch (err) {
++        const message = err instanceof Error ? err.message : String(err);
++        log.error("failed to post affiliate tweet to X; stopping thread here", {
++          failedAtIndex: tweet.index,
++          total: tweets.length,
++          postedSoFar: postedIds.length,
++          postedTweetIds: postedIds,
++          productId: product.id,
++          message,
++        });
++        return {
++          posted: false,
++          detail: `${tweet.index}/${tweets.length}件目のツイート投稿に失敗しました(${postedIds.length}件は投稿済み): ${message}`,
++          tweetIds: postedIds,
++          failedAtIndex: tweet.index,
++          error: message,
++        };
++      }
++    }
++
++    const postedAt = new Date().toISOString();
++    log.info("posted full affiliate thread to X", {
++      tweetCount: postedIds.length,
++      tweetIds: postedIds,
++      productId: product.id,
++    });
++    return {
++      posted: true,
++      detail: `${postedIds.length}件のツイートをスレッドとして投稿しました`,
++      tweetIds: postedIds,
++      postedAt,
++    };
++  };
++}
++
++/**
++ * 指定したアカウントの認証情報でクライアントを構築し、本番投稿用のAffiliatePublishFnを組み立てる。
++ * account省略時はデフォルトアカウント(既存のAIニュースアカウントと同じXアカウント)。
++ */
++export function createXApiPublishForAffiliateAccount(
++  account: AccountProfile = getAccountProfile(),
++  retryPolicy: RateLimitRetryPolicy = DEFAULT_RATE_LIMIT_RETRY_POLICY,
++  sleep: SleepFn = defaultSleep
++): AffiliatePublishFn {
++  return createXApiPublishForAffiliate(createXClient(account), retryPolicy, sleep);
++}
+diff --git a/src/config.ts b/src/config.ts
+index 7ae5507..7bbfc55 100644
+--- a/src/config.ts
++++ b/src/config.ts
+@@ -211,6 +211,75 @@ export function getRecoveryWindowHours(env: NodeJS.ProcessEnv = process.env): nu
+   return value;
+ }
+ 
++// ---- アフィリエイト投稿(AIニュース3枠とは独立した投稿パイプライン)の設定 ----
++
++/** アフィリエイト投稿枠の識別子。AIニュースのSlotId("morning"|"noon"|"evening")とは別の独立した枠 */
++export const AFFILIATE_SLOT_ID = "affiliate";
++export const AFFILIATE_SLOT_LABEL = "アフィリエイト";
++const AFFILIATE_SLOT_ENV_VAR = "AFFILIATE_POST_TIME";
++const AFFILIATE_SLOT_DEFAULT_TIME = "19:00";
++
++export interface AffiliatePostSlotTime {
++  id: string;
++  label: string;
++  hourJst: number;
++  minuteJst: number;
++}
++
++function parseAffiliateSlotTime(env: NodeJS.ProcessEnv): ParsedField<{ hourJst: number; minuteJst: number }> {
++  const fallback = parseTimeString(AFFILIATE_SLOT_DEFAULT_TIME)!;
++  const raw = env[AFFILIATE_SLOT_ENV_VAR];
++  if (!raw) {
++    return { value: fallback };
++  }
++  const parsed = parseTimeString(raw);
++  if (!parsed) {
++    return {
++      value: fallback,
++      error: `${AFFILIATE_SLOT_ENV_VAR} の値 "${raw}" は不正な時刻形式です("HH:MM"、00:00〜23:59で指定してください)`,
++    };
++  }
++  return { value: parsed };
++}
++
++/**
++ * アフィリエイト投稿枠(既定19:00 JST、1日1枠)の目安時刻を返す唯一の取得口。
++ * `AFFILIATE_POST_TIME`環境変数で上書き可。AIニュース3枠(`getPostSlots()`)とは完全に独立している。
++ */
++export function getAffiliatePostSlot(env: NodeJS.ProcessEnv = process.env): AffiliatePostSlotTime {
++  const { value, error } = parseAffiliateSlotTime(env);
++  if (error) {
++    log.warn(`invalid ${AFFILIATE_SLOT_ENV_VAR}; falling back to default (${AFFILIATE_SLOT_DEFAULT_TIME})`, {
++      raw: env[AFFILIATE_SLOT_ENV_VAR],
++    });
++  }
++  return { id: AFFILIATE_SLOT_ID, label: AFFILIATE_SLOT_LABEL, ...value };
++}
++
++export const DEFAULT_AFFILIATE_MAX_POSTS_PER_PRODUCT = 3;
++
++function parseAffiliateMaxPostsPerProduct(env: NodeJS.ProcessEnv): ParsedField<number> {
++  const raw = env.AFFILIATE_MAX_POSTS_PER_PRODUCT;
++  if (!raw) {
++    return { value: DEFAULT_AFFILIATE_MAX_POSTS_PER_PRODUCT };
++  }
++  const parsed = Number(raw);
++  if (!Number.isInteger(parsed) || parsed < 1) {
++    return {
++      value: DEFAULT_AFFILIATE_MAX_POSTS_PER_PRODUCT,
++      error: `AFFILIATE_MAX_POSTS_PER_PRODUCT の値 "${raw}" は不正です(1以上の整数を指定してください)`,
++    };
++  }
++  return { value: parsed };
++}
++
++/** 同一商品の投稿回数の上限(ローテーション)を返す唯一の取得口。`AFFILIATE_MAX_POSTS_PER_PRODUCT`で上書き可(既定3) */
++export function getAffiliateMaxPostsPerProduct(env: NodeJS.ProcessEnv = process.env): number {
++  const { value, error } = parseAffiliateMaxPostsPerProduct(env);
++  if (error) log.warn(error);
++  return value;
++}
++
+ /** 認証情報系設定の「設定済みかどうか」だけを返す(実値は一切保持・出力しない) */
+ export interface CredentialsStatus {
+   anthropicApiKeyConfigured: boolean;
+@@ -270,6 +339,12 @@ export function assertValidConfig(env: NodeJS.ProcessEnv = process.env): void {
+   const recovery = parseRecoveryWindowHours(env);
+   if (recovery.error) errors.push(recovery.error);
+ 
++  const affiliateSlot = parseAffiliateSlotTime(env);
++  if (affiliateSlot.error) errors.push(affiliateSlot.error);
++
++  const affiliateMaxPosts = parseAffiliateMaxPostsPerProduct(env);
++  if (affiliateMaxPosts.error) errors.push(affiliateMaxPosts.error);
++
+   const credentials = getCredentialsStatus(env);
+   if (credentials.xCredentialsPartiallyConfigured) {
+     errors.push(
+diff --git a/src/dryRunAffiliate.ts b/src/dryRunAffiliate.ts
+new file mode 100644
+index 0000000..897b2da
+--- /dev/null
++++ b/src/dryRunAffiliate.ts
+@@ -0,0 +1,179 @@
++#!/usr/bin/env node
++/**
++ * アフィリエイト投稿のドライラン(投稿せずプレビュー)。
++ *
++ * `runAffiliatePostingPipeline` (src/affiliatePipeline.ts) を、送信しない `dryRunAffiliatePublish` を
++ * 渡して実行する。既存のAIニュースの `npm run dryrun`(src/dryRun.ts)とはコード上完全に独立しており、
++ * こちらの実行は既存のAIニュース投稿の動作・履歴に一切影響しない。
++ */
++import { existsSync } from "node:fs";
++import { mkdir, writeFile } from "node:fs/promises";
++import path from "node:path";
++import { fileURLToPath } from "node:url";
++import { log } from "./logger.js";
++import { runAffiliatePostingPipeline, dryRunAffiliatePublish } from "./affiliatePipeline.js";
++import { TWEET_CHAR_LIMIT } from "./tweetLength.js";
++import { resolveCurrentAffiliateSlot } from "./postSchedule.js";
++import { getAccountProfile } from "./accounts.js";
++import type { ThreadTweet } from "./threadSplit.js";
++
++/** CLIから直接実行された場合のみ、リポジトリ直下の.env(存在すれば)をprocess.envへ読み込む */
++function loadDotEnvIfPresent(): void {
++  const envFile = path.join(process.cwd(), ".env");
++  if (existsSync(envFile)) {
++    process.loadEnvFile(envFile);
++  }
++}
++
++function printPreview(tweets: ThreadTweet[]): void {
++  console.log("==== ドライラン: アフィリエイト投稿予定プレビュー(Xへは投稿していません) ====");
++  for (const tweet of tweets) {
++    console.log(
++      `[${tweet.index}/${tweets.length}] (${tweet.kind === "body" ? "本文" : "リンク"}, ${tweet.charLength}/${TWEET_CHAR_LIMIT}文字)`
++    );
++    console.log(tweet.text);
++    console.log("----");
++  }
++}
++
++/** "--slot=affiliate" 形式の引数から値を取り出す。未指定ならundefined */
++function readArgValue(args: string[], flag: string): string | undefined {
++  const prefix = `${flag}=`;
++  const found = args.find((a) => a.startsWith(prefix));
++  return found ? found.slice(prefix.length) : undefined;
++}
++
++async function main() {
++  loadDotEnvIfPresent();
++  const args = process.argv.slice(2);
++  // ドライランは既定でアフィリエイト投稿履歴(ローテーション・冪等性判定用)を汚さない。
++  const writeHistory = args.includes("--write-history");
++  const account = getAccountProfile(readArgValue(args, "--account"));
++  let slot = readArgValue(args, "--slot");
++  let scheduledAt = readArgValue(args, "--scheduled-at");
++
++  // --auto-slot 指定時は、現在時刻(または --now で注入したテスト用時刻)からアフィリエイト投稿枠
++  // (既定19:00 JST)に該当するかを自動判定する。外部cronサービスからはこのフラグで起動する想定。
++  const autoSlot = args.includes("--auto-slot");
++  if (autoSlot) {
++    const nowRaw = readArgValue(args, "--now");
++    const now = nowRaw ? new Date(nowRaw) : new Date();
++    const resolved = resolveCurrentAffiliateSlot(now);
++    if (!resolved) {
++      log.info("auto-slot: affiliate posting slot is not currently active; nothing to do", {
++        now: now.toISOString(),
++      });
++      const outDir = path.join(process.cwd(), "data", "output");
++      await mkdir(outDir, { recursive: true });
++      await writeFile(
++        path.join(outDir, "latest-affiliate-dryrun.json"),
++        JSON.stringify(
++          {
++            ranAt: new Date().toISOString(),
++            dryRun: true,
++            success: false,
++            stage: "skipped",
++            skipReason: "no-active-slot",
++            error: "現在時刻はアフィリエイト投稿枠の実行タイミングではありません",
++          },
++          null,
++          2
++        ),
++        "utf-8"
++      );
++      return;
++    }
++    slot = resolved.slot;
++    scheduledAt = resolved.scheduledAt;
++    log.info(`auto-slot resolved to "${resolved.label}" (${resolved.slot})`, { scheduledAt });
++  }
++
++  log.info("running affiliate dry run pipeline (select -> generate -> thread, no posting to X)", {
++    accountId: account.id,
++    writeHistory,
++    slot,
++    scheduledAt,
++  });
++
++  const result = await runAffiliatePostingPipeline({
++    writeHistory,
++    publish: dryRunAffiliatePublish,
++    slot,
++    scheduledAt,
++    accountId: account.id,
++  });
++
++  const outDir = path.join(process.cwd(), "data", "output");
++  await mkdir(outDir, { recursive: true });
++  const outFile = path.join(outDir, "latest-affiliate-dryrun.json");
++
++  if (!result.success) {
++    log.warn(`affiliate dry run stopped at stage "${result.stage}"`, {
++      reason: result.error,
++      skipReason: result.skipReason,
++    });
++    await writeFile(
++      outFile,
++      JSON.stringify(
++        {
++          ranAt: new Date().toISOString(),
++          dryRun: true,
++          success: false,
++          accountId: result.accountId,
++          stage: result.stage,
++          skipReason: result.skipReason,
++          error: result.error,
++        },
++        null,
++        2
++      ),
++      "utf-8"
++    );
++    process.exitCode = 1;
++    return;
++  }
++
++  console.log(`アカウント: ${account.label} (${result.accountId})`);
++  console.log(`選定商品: ${result.product?.name} (${result.product?.id})`);
++  console.log(`選定理由: ${result.selectionReason}`);
++  console.log("");
++  printPreview(result.tweets ?? []);
++  console.log("");
++  console.log(
++    result.historyWritten
++      ? "アフィリエイト投稿履歴に記録しました(--write-history 指定)"
++      : "アフィリエイト投稿履歴には記録していません(ドライランの既定動作。ローテーション判定用データは汚れません)"
++  );
++
++  await writeFile(
++    outFile,
++    JSON.stringify(
++      {
++        ranAt: new Date().toISOString(),
++        dryRun: true,
++        success: true,
++        accountId: result.accountId,
++        product: result.product,
++        selectionReason: result.selectionReason,
++        text: result.text,
++        tweets: result.tweets,
++        historyWritten: result.historyWritten,
++        publishResult: result.publishResult,
++      },
++      null,
++      2
++    ),
++    "utf-8"
++  );
++  log.info(`wrote affiliate dry run result to ${outFile}`, { tweetCount: result.tweets?.length ?? 0 });
++}
++
++const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
++if (isDirectRun) {
++  main().catch((err) => {
++    log.error("fatal error during affiliate dry run", {
++      message: err instanceof Error ? err.message : String(err),
++    });
++    process.exitCode = 1;
++  });
++}
+diff --git a/src/generateAffiliatePost.ts b/src/generateAffiliatePost.ts
+new file mode 100644
+index 0000000..93e34ec
+--- /dev/null
++++ b/src/generateAffiliatePost.ts
+@@ -0,0 +1,159 @@
++/**
++ * アフィリエイト商品の紹介文生成。
++ *
++ * AIニュースの生成ロジック(src/generatePost.ts)からレスポンス整形(extractTextFromResponse/
++ * cleanGeneratedText)・クライアント構築(createAnthropicClient)を再利用しつつ、プロンプト構築・
++ * 検証(ensurePrLabel/validateAffiliateGeneratedText)はアフィリエイト固有のものとして実装する。
++ *
++ * 生成方針(景品表示法のステルスマーケティング規制対応、実体験捏造の防止):
++ * - 「【PR】」を本文の先頭に必ず含める(最重要・省略不可)。プロンプトで指示するだけでなく、
++ *   モデルが指示に従わなかった場合の安全網として ensurePrLabel() でコード側からも強制する
++ *   (src/logger.tsの認証情報マスキングと同じ「多層防御」の考え方)。
++ * - `facts`(ユーザーが公式情報から手動記入した事実)に無い特長・効果を創作しない。
++ * - 「私は使ってみて〜」のような一人称の体験談は書かない(実体験の捏造禁止)。
++ * - 誇大な効果効能・断定的な優良性の主張を避ける。
++ *
++ * ANTHROPIC_API_KEY が未設定の場合は生成を行わず、安全にエラーとして扱う(壊れた/空の投稿をしない)。
++ */
++import type Anthropic from "@anthropic-ai/sdk";
++import { log } from "./logger.js";
++import {
++  extractTextFromResponse,
++  cleanGeneratedText,
++  createAnthropicClient,
++  DEFAULT_MODEL,
++  type AnthropicMessageClient,
++} from "./generatePost.js";
++import { getAccountProfile, resolveCredentialEnvVarName, type AccountProfile } from "./accounts.js";
++import type { AffiliateProduct } from "./affiliateProducts.js";
++
++/** 景品表示法のステルスマーケティング規制対応: 広告であることを示す必須表記 */
++export const PR_LABEL = "【PR】";
++
++/** 生成に使う最大出力トークン数(短い投稿文面のため小さめに設定) */
++export const MAX_OUTPUT_TOKENS = 400;
++
++/** 生成文の最大文字数目安(極端に長い/壊れた出力を弾く安全弁) */
++export const MAX_GENERATED_LENGTH = 600;
++
++export interface AffiliateGenerationPrompt {
++  system: string;
++  user: string;
++}
++
++/** 選定商品から、Claudeへ渡すsystem/userプロンプトを組み立てる純粋関数(テスト容易性のため分離) */
++export function buildAffiliateGenerationPrompt(product: AffiliateProduct): AffiliateGenerationPrompt {
++  const system = [
++    "あなたはアフィリエイト商品・サービスを紹介するXアカウントの編集者です。",
++    "以下の制約を厳守して投稿文面を作成してください。いずれも例外なく守るべき制約です。",
++    `- 【最重要・省略不可】投稿本文の先頭に必ず「${PR_LABEL}」という表記を含めてください。これは広告であることを示す、景品表示法上必須の表記です。`,
++    "- これから提示する「事実」のリストに書かれている範囲でのみ紹介してください。事実に書かれていない特長・効果・スペック・数値を創作したり誇張したりしないでください。",
++    "- 「私は使ってみて」「実際に使用してみたところ」「愛用しています」のような一人称の利用体験・感想は、実際には体験していないため絶対に書かないでください(体験談の捏造は禁止です)。",
++    "- 「絶対に痩せる」「必ず効果がある」のような誇大な効果効能や、断定的な優良性の主張は避け、提示された事実の範囲で客観的に紹介してください。個別の投資助言(売買を推奨する等)、健康/美容/医療の断定的な効果効能は書かないでください。",
++    "- 前置きや挨拶、説明文、引用符での囲みは書かず、投稿本文のみを出力してください。ハッシュタグの羅列も付けないでください。",
++    "- リンクURLは本文に含めないでください(別のツイートとして後から付与されます)。",
++  ].join("\n");
++
++  const user = [
++    "以下の商品/サービスについて、事実ベースの紹介文を1つ作成してください。",
++    "",
++    `商品名: ${product.name}`,
++    `公式サイト: ${product.officialUrl}`,
++    "事実(この範囲でのみ紹介してください。ここに書かれていない情報は書かないでください):",
++    ...(product.facts.length > 0 ? product.facts.map((f) => `- ${f}`) : ["(事実情報が登録されていません)"]),
++  ].join("\n");
++
++  return { system, user };
++}
++
++/**
++ * 生成結果に必ず【PR】表記を先頭に含める安全網(多層防御)。
++ * モデルが指示に従わずPR_LABELを省略・本文途中に置いた場合でも、本文中の既存のPR_LABEL出現を
++ * 取り除いた上で先頭に付け直すことで、常に「先頭に1つだけ」存在する状態を保証する。
++ */
++export function ensurePrLabel(text: string): string {
++  const withoutLabel = text.split(PR_LABEL).join("").trim();
++  return `${PR_LABEL} ${withoutLabel}`.trim();
++}
++
++export interface AffiliateValidationResult {
++  valid: boolean;
++  reason?: string;
++}
++
++/** 生成文面の安全弁チェック(空/長すぎ/PR表記の欠落を検知する) */
++export function validateAffiliateGeneratedText(text: string): AffiliateValidationResult {
++  if (!text || text.length === 0) {
++    return { valid: false, reason: "生成結果が空文字列でした" };
++  }
++  if (text.length > MAX_GENERATED_LENGTH) {
++    return {
++      valid: false,
++      reason: `生成結果が長すぎます(${text.length}文字 > 上限${MAX_GENERATED_LENGTH}文字)`,
++    };
++  }
++  if (!text.startsWith(PR_LABEL)) {
++    return {
++      valid: false,
++      reason: `生成結果の先頭に「${PR_LABEL}」が含まれていません(景品表示法対応のため必須)`,
++    };
++  }
++  return { valid: true };
++}
++
++export type AffiliatePostGenerationResult =
++  | { success: true; text: string; product: AffiliateProduct }
++  | { success: false; error: string; product: AffiliateProduct };
++
++/**
++ * 選定商品から投稿本文を生成する。
++ * APIキー未設定・API呼び出し失敗・生成結果が検証を通らない場合は、いずれもsuccess:falseで返す
++ * (例外は投げない。呼び出し側がこの結果を見て「投稿せず安全に終了する」判断をするため)。
++ */
++export async function generateAffiliatePostText(
++  product: AffiliateProduct,
++  client?: AnthropicMessageClient | null,
++  account: AccountProfile = getAccountProfile()
++): Promise<AffiliatePostGenerationResult> {
++  const resolvedClient = client === undefined ? createAnthropicClient(account) : client;
++  if (!resolvedClient) {
++    const envVarName = resolveCredentialEnvVarName("ANTHROPIC_API_KEY", account);
++    const error = `${envVarName} が未設定のためアフィリエイト投稿文面を生成できません`;
++    log.error(error, { productId: product.id, accountId: account.id });
++    return { success: false, error, product };
++  }
++
++  const prompt = buildAffiliateGenerationPrompt(product);
++
++  let message: Anthropic.Message;
++  try {
++    message = await resolvedClient.messages.create({
++      model: DEFAULT_MODEL,
++      max_tokens: MAX_OUTPUT_TOKENS,
++      system: prompt.system,
++      messages: [{ role: "user", content: prompt.user }],
++    });
++  } catch (err) {
++    const errMessage = err instanceof Error ? err.message : String(err);
++    log.error("failed to call Anthropic API for affiliate post generation", {
++      message: errMessage,
++      productId: product.id,
++    });
++    return { success: false, error: `Anthropic API呼び出しに失敗しました: ${errMessage}`, product };
++  }
++
++  const rawText = cleanGeneratedText(extractTextFromResponse(message));
++  const text = ensurePrLabel(rawText);
++  const validation = validateAffiliateGeneratedText(text);
++  if (!validation.valid) {
++    log.error("generated affiliate post text failed validation, aborting without posting", {
++      reason: validation.reason,
++      productId: product.id,
++    });
++    return { success: false, error: validation.reason ?? "生成結果の検証に失敗しました", product };
++  }
++
++  // 実行ログに生成本文そのものを残す(監査・障害調査用)。認証情報ではないためマスク対象外。
++  log.info("generated affiliate post text", { productId: product.id, length: text.length, text });
++  return { success: true, text, product };
++}
+diff --git a/src/postHistory.ts b/src/postHistory.ts
+index 3d3fa11..ba8b9eb 100644
+--- a/src/postHistory.ts
++++ b/src/postHistory.ts
+@@ -128,7 +128,7 @@ const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+  * (二重投稿・誤スキップの実害が確認されたためSprint 7で修正)。
+  * タイムゾーンライブラリは使わず、+9時間シフトしてから日付部分を取り出すのみで十分(夏時間なし)。
+  */
+-function toDateKey(iso: string): string {
++export function toDateKey(iso: string): string {
+   const jstDate = new Date(new Date(iso).getTime() + JST_OFFSET_MS);
+   return jstDate.toISOString().slice(0, 10);
+ }
+diff --git a/src/postSchedule.ts b/src/postSchedule.ts
+index 3fa231e..d29c3ab 100644
+--- a/src/postSchedule.ts
++++ b/src/postSchedule.ts
+@@ -8,7 +8,7 @@
+  * よい(Sprint 7でtoDateKeyがUTC基準になっていたことによる日境界バグが見つかった教訓を踏襲)。
+  */
+ import { DEFAULT_RECOVERY_WINDOW_HOURS, getConfiguredRecoveryWindowHours } from "./postHistory.js";
+-import { getPostSlots } from "./config.js";
++import { getPostSlots, getAffiliatePostSlot } from "./config.js";
+ 
+ /** JSTとUTCの固定オフセット(ミリ秒) */
+ const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+@@ -112,5 +112,49 @@ export function resolveCurrentSlot(
+   };
+ }
+ 
++export interface ResolvedAffiliateSlot {
++  /** アフィリエイト投稿枠の識別子(常に"affiliate") */
++  slot: string;
++  /** 枠のラベル */
++  label: string;
++  /** その枠の本来の予定時刻(ISO8601、UTC) */
++  scheduledAt: string;
++}
++
++/**
++ * アフィリエイト投稿枠(既定19:00 JST、1日1枠。AIニュース3枠とは完全に独立)の判定。
++ * `resolveCurrentSlot`と同じJST基準・日境界セーフなロジック(jstDateParts/scheduledAtForJstDate)を
++ * 再利用しつつ、AIニュース枠(POST_SLOTS)とは独立した専用の判定関数として実装する
++ * (両者の投稿履歴ファイルが別なので、冪等性判定も自然に分離される)。
++ */
++export function resolveCurrentAffiliateSlot(
++  now: Date = new Date(),
++  toleranceHours: number = getConfiguredRecoveryWindowHours()
++): ResolvedAffiliateSlot | null {
++  const slot = getAffiliatePostSlot();
++  const todayParts = jstDateParts(now);
++  const yesterdayParts = jstDateParts(new Date(now.getTime() - 24 * 60 * 60 * 1000));
++  const toleranceMs = toleranceHours * 60 * 60 * 1000;
++
++  let best: { scheduledAt: Date; elapsedMs: number } | undefined;
++
++  for (const parts of [todayParts, yesterdayParts]) {
++    const scheduledAt = scheduledAtForJstDate(slot, parts);
++    const elapsedMs = now.getTime() - scheduledAt.getTime();
++    if (elapsedMs < 0 || elapsedMs > toleranceMs) {
++      continue;
++    }
++    if (!best || elapsedMs < best.elapsedMs) {
++      best = { scheduledAt, elapsedMs };
++    }
++  }
++
++  if (!best) {
++    return null;
++  }
++
++  return { slot: slot.id, label: slot.label, scheduledAt: best.scheduledAt.toISOString() };
++}
++
+ // re-export for callers that only need the default tolerance without importing postHistory directly
+ export { DEFAULT_RECOVERY_WINDOW_HOURS };
+diff --git a/src/publishAffiliate.ts b/src/publishAffiliate.ts
+new file mode 100644
+index 0000000..e57598d
+--- /dev/null
++++ b/src/publishAffiliate.ts
+@@ -0,0 +1,202 @@
++#!/usr/bin/env node
++/**
++ * アフィリエイト投稿の本番実行(Xへ実際にスレッド投稿する)。
++ *
++ * `runAffiliatePostingPipeline` (src/affiliatePipeline.ts) を、実際にX APIへ送信する
++ * `createXApiPublishForAffiliateAccount` (src/affiliateXPublish.ts) を渡して実行する。
++ * 既存のAIニュースの `npm run post`(src/publish.ts)とはコード上完全に独立しており、
++ * こちらの実行は既存のAIニュース投稿の動作・履歴に一切影響しない
++ * (投稿履歴ファイルも data/history/affiliate-post-history.json と別)。
++ *
++ * X_API_KEY/X_API_SECRET/X_ACCESS_TOKEN/X_ACCESS_SECRET が未設定の場合、
++ * publish段階でAPIを呼び出さず安全にエラーとして終了する。
++ */
++import { existsSync } from "node:fs";
++import { mkdir, writeFile } from "node:fs/promises";
++import path from "node:path";
++import { fileURLToPath } from "node:url";
++import { log } from "./logger.js";
++import { runAffiliatePostingPipeline } from "./affiliatePipeline.js";
++import { createXApiPublishForAffiliateAccount } from "./affiliateXPublish.js";
++import { resolveCurrentAffiliateSlot } from "./postSchedule.js";
++import { notify } from "./notify.js";
++import { getAccountProfile } from "./accounts.js";
++
++/** CLIから直接実行された場合のみ、リポジトリ直下の.env(存在すれば)をprocess.envへ読み込む */
++function loadDotEnvIfPresent(): void {
++  const envFile = path.join(process.cwd(), ".env");
++  if (existsSync(envFile)) {
++    process.loadEnvFile(envFile);
++  }
++}
++
++/** "--slot=affiliate" 形式の引数から値を取り出す。未指定ならundefined */
++function readArgValue(args: string[], flag: string): string | undefined {
++  const prefix = `${flag}=`;
++  const found = args.find((a) => a.startsWith(prefix));
++  return found ? found.slice(prefix.length) : undefined;
++}
++
++async function main() {
++  loadDotEnvIfPresent();
++  const args = process.argv.slice(2);
++  const account = getAccountProfile(readArgValue(args, "--account"));
++  let slot = readArgValue(args, "--slot");
++  let scheduledAt = readArgValue(args, "--scheduled-at");
++
++  // --auto-slot 指定時は、現在時刻(または --now で注入したテスト用時刻)からアフィリエイト投稿枠
++  // (既定19:00 JST)に該当するかを自動判定する。外部cronサービスからはこのフラグで起動する想定。
++  const autoSlot = args.includes("--auto-slot");
++  if (autoSlot) {
++    const nowRaw = readArgValue(args, "--now");
++    const now = nowRaw ? new Date(nowRaw) : new Date();
++    const resolved = resolveCurrentAffiliateSlot(now);
++    if (!resolved) {
++      log.info("auto-slot: affiliate posting slot is not currently active; nothing to do", {
++        now: now.toISOString(),
++      });
++      const outDir = path.join(process.cwd(), "data", "output");
++      await mkdir(outDir, { recursive: true });
++      await writeFile(
++        path.join(outDir, "latest-affiliate-publish.json"),
++        JSON.stringify(
++          {
++            ranAt: new Date().toISOString(),
++            success: false,
++            stage: "skipped",
++            skipReason: "no-active-slot",
++            error: "現在時刻はアフィリエイト投稿枠の実行タイミングではありません",
++          },
++          null,
++          2
++        ),
++        "utf-8"
++      );
++      return;
++    }
++    slot = resolved.slot;
++    scheduledAt = resolved.scheduledAt;
++    log.info(`auto-slot resolved to "${resolved.label}" (${resolved.slot})`, { scheduledAt });
++  }
++
++  log.info("running live affiliate posting pipeline (select -> generate -> thread -> post to X)", {
++    accountId: account.id,
++    slot,
++    scheduledAt,
++  });
++
++  const result = await runAffiliatePostingPipeline({
++    writeHistory: true,
++    publish: createXApiPublishForAffiliateAccount(account),
++    slot,
++    scheduledAt,
++    accountId: account.id,
++  });
++
++  const outDir = path.join(process.cwd(), "data", "output");
++  await mkdir(outDir, { recursive: true });
++  const outFile = path.join(outDir, "latest-affiliate-publish.json");
++
++  if (!result.success) {
++    log.warn(`affiliate posting pipeline stopped at stage "${result.stage}"`, {
++      reason: result.error,
++      skipReason: result.skipReason,
++    });
++
++    if (result.skipReason === "outside-recovery-window") {
++      await notify({
++        level: "warning",
++        title: "アフィリエイト投稿枠を逃しました(不発リカバリの許容範囲外)",
++        detail: result.error ?? "詳細不明",
++      });
++    } else if (result.stage === "select") {
++      await notify({
++        level: "warning",
++        title: "アフィリエイト投稿対象の商品がありませんでした",
++        detail: result.error ?? "詳細不明",
++      });
++    } else if (result.stage === "generate") {
++      await notify({
++        level: "error",
++        title: "アフィリエイト投稿文面の生成に失敗しました",
++        detail: result.error ?? "詳細不明",
++      });
++    }
++
++    await writeFile(
++      outFile,
++      JSON.stringify(
++        {
++          ranAt: new Date().toISOString(),
++          success: false,
++          accountId: result.accountId,
++          stage: result.stage,
++          skipReason: result.skipReason,
++          error: result.error,
++        },
++        null,
++        2
++      ),
++      "utf-8"
++    );
++    // stage:"skipped"(冪等性/不発リカバリの許容範囲外)はcron連携上の正常な動作のため異常終了にしない。
++    if (result.stage !== "skipped") {
++      process.exitCode = 1;
++    }
++    return;
++  }
++
++  const publishResult = result.publishResult;
++  if (!publishResult?.posted) {
++    log.error("posting affiliate thread to X did not complete successfully", {
++      detail: publishResult?.detail,
++      tweetIds: publishResult?.tweetIds,
++      failedAtIndex: publishResult?.failedAtIndex,
++    });
++    await notify({
++      level: "error",
++      title: "アフィリエイト投稿のXへの送信に失敗しました",
++      detail: publishResult?.detail ?? publishResult?.error ?? "詳細不明",
++    });
++  } else {
++    log.info("posted affiliate thread to X successfully", {
++      tweetIds: publishResult.tweetIds,
++      postedAt: publishResult.postedAt,
++    });
++  }
++
++  await writeFile(
++    outFile,
++    JSON.stringify(
++      {
++        ranAt: new Date().toISOString(),
++        success: true,
++        accountId: result.accountId,
++        product: result.product,
++        selectionReason: result.selectionReason,
++        text: result.text,
++        tweets: result.tweets,
++        historyWritten: result.historyWritten,
++        publishResult,
++      },
++      null,
++      2
++    ),
++    "utf-8"
++  );
++  log.info(`wrote affiliate publish result to ${outFile}`);
++
++  if (!publishResult?.posted) {
++    process.exitCode = 1;
++  }
++}
++
++const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
++if (isDirectRun) {
++  main().catch((err) => {
++    log.error("fatal error during live affiliate posting", {
++      message: err instanceof Error ? err.message : String(err),
++    });
++    process.exitCode = 1;
++  });
++}
+diff --git a/src/selectAffiliateProduct.ts b/src/selectAffiliateProduct.ts
+new file mode 100644
+index 0000000..470d185
+--- /dev/null
++++ b/src/selectAffiliateProduct.ts
+@@ -0,0 +1,96 @@
++/**
++ * アフィリエイト投稿対象の商品を、投稿履歴(ローテーション状態)を見ながら選定するロジック。
++ *
++ * AIニュースの選定ロジック(src/selectPost.ts、既出記事のURL/実質同一記事の除外)とは目的が異なる
++ * 別物として実装する: こちらは「同一商品の投稿回数が上限未満」かつ「なるべく直近に投稿していない
++ * 商品」を選ぶ、ローテーション(rotation)方式の選定。
++ *
++ * 商品リストが空、または有効な商品が全て上限に達している場合は「投稿対象なし」として理由付きで
++ * スキップする(既存のF2「有効な候補が0件」と同じ設計思想: 例外を投げず、安全にスキップする)。
++ */
++import { filterEnabledProducts, type AffiliateProduct } from "./affiliateProducts.js";
++import { countPostedByProduct, lastPostedAtByProduct, type AffiliatePostHistoryEntry } from "./affiliateHistory.js";
++import { getAffiliateMaxPostsPerProduct } from "./config.js";
++
++export interface AffiliateSelectionResult {
++  /** 選定された商品。投稿対象が無い場合はnull */
++  selected: AffiliateProduct | null;
++  /** 選定/スキップの理由(ログ・出力用の人間可読な文字列) */
++  reason: string;
++  /** 登録済み商品の総数(enabled問わず) */
++  consideredCount: number;
++  /** 投稿対象(enabled:true)の商品数 */
++  enabledCount: number;
++}
++
++/**
++ * 商品リストと履歴から、投稿対象の1件をローテーション方式で選ぶ。
++ *
++ * 選定順序:
++ *   1. 商品リストが空なら投稿対象なし。
++ *   2. enabled:trueの商品が0件なら投稿対象なし。
++ *   3. 有効な商品のうち、投稿済み(status:"posted")回数がmaxPostsPerProduct未満のものだけを対象にする。
++ *      全商品が上限に達していれば投稿対象なし。
++ *   4. 対象の中から、最終投稿日時が最も古い商品(未投稿の商品は最優先)を選ぶ。
++ */
++export function selectAffiliateProduct(
++  products: AffiliateProduct[],
++  history: AffiliatePostHistoryEntry[],
++  maxPostsPerProduct: number = getAffiliateMaxPostsPerProduct()
++): AffiliateSelectionResult {
++  const consideredCount = products.length;
++
++  if (consideredCount === 0) {
++    return {
++      selected: null,
++      reason: "商品リストが空のため投稿対象なし(data/affiliate-products.jsonに商品を追加してください)",
++      consideredCount,
++      enabledCount: 0,
++    };
++  }
++
++  const enabled = filterEnabledProducts(products);
++  if (enabled.length === 0) {
++    return {
++      selected: null,
++      reason: `登録済み商品${consideredCount}件のうち、投稿対象(enabled:true)が0件のためスキップ`,
++      consideredCount,
++      enabledCount: 0,
++    };
++  }
++
++  const postedCounts = countPostedByProduct(history);
++  const lastPostedAt = lastPostedAtByProduct(history);
++
++  const eligible = enabled.filter((p) => (postedCounts.get(p.id) ?? 0) < maxPostsPerProduct);
++
++  if (eligible.length === 0) {
++    return {
++      selected: null,
++      reason: `有効な商品${enabled.length}件すべてが投稿回数の上限(${maxPostsPerProduct}回)に達しているためスキップ`,
++      consideredCount,
++      enabledCount: enabled.length,
++    };
++  }
++
++  // なるべく直近に投稿していない商品を優先する: 未投稿の商品を最優先とし、
++  // 次点は最終投稿日時が古い順(=最も長くローテーションから外れている商品)を選ぶ。
++  const sorted = [...eligible].sort((a, b) => {
++    const aLast = lastPostedAt.get(a.id);
++    const bLast = lastPostedAt.get(b.id);
++    if (!aLast && !bLast) return 0;
++    if (!aLast) return -1;
++    if (!bLast) return 1;
++    return new Date(aLast).getTime() - new Date(bLast).getTime();
++  });
++
++  const selected = sorted[0];
++  return {
++    selected,
++    reason:
++      `有効な商品${enabled.length}件中、投稿回数上限(${maxPostsPerProduct}回)未満の${eligible.length}件から、` +
++      `最も直近に投稿していない商品を選定(選定商品の投稿済み回数: ${postedCounts.get(selected.id) ?? 0}回)`,
++    consideredCount,
++    enabledCount: enabled.length,
++  };
++}
+diff --git a/src/xPublish.ts b/src/xPublish.ts
+index 6213baa..2bb3724 100644
+--- a/src/xPublish.ts
++++ b/src/xPublish.ts
+@@ -128,7 +128,12 @@ const defaultSleep: SleepFn = (ms) => new Promise((resolve) => setTimeout(resolv
+  * 1件のツイートをレート制限に配慮しつつ投稿する。
+  * 429以外のエラー、またはリトライ上限・待機上限を超える429は即座にエラーとして投げる(呼び出し側でtry/catch)。
+  */
+-async function postWithRateLimitRetry(
++/**
++ * 単一ツイート投稿+レート制限リトライの共通ロジック。
++ * 本番のAIニュース投稿(xApiPublish)専用ではなく、アフィリエイト投稿(src/affiliateXPublish.ts)からも
++ * 再利用する(同じリトライ方針・実装を複製せず一箇所に保つ)。
++ */
++export async function postWithRateLimitRetry(
+   client: XPostClient,
+   text: string,
+   replyToTweetId: string | undefined,
+diff --git a/test/affiliateHistory.test.ts b/test/affiliateHistory.test.ts
+new file mode 100644
+index 0000000..bc72082
+--- /dev/null
++++ b/test/affiliateHistory.test.ts
+@@ -0,0 +1,152 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { mkdtemp, rm } from "node:fs/promises";
++import { tmpdir } from "node:os";
++import path from "node:path";
++import {
++  loadAffiliateHistory,
++  appendAffiliateHistoryEntry,
++  updateAffiliateHistoryEntry,
++  hasPostedAffiliateSlotOnDate,
++  countPostedByProduct,
++  lastPostedAtByProduct,
++  type AffiliatePostHistoryEntry,
++} from "../src/affiliateHistory.js";
++
++async function withTempHistoryFile(fn: (filePath: string) => Promise<void>) {
++  const dir = await mkdtemp(path.join(tmpdir(), "affiliate-history-test-"));
++  const filePath = path.join(dir, "affiliate-post-history.json");
++  try {
++    await fn(filePath);
++  } finally {
++    await rm(dir, { recursive: true, force: true });
++  }
++}
++
++test("履歴ファイルが存在しない場合、空配列を返す", async () => {
++  await withTempHistoryFile(async (filePath) => {
++    const history = await loadAffiliateHistory(filePath);
++    assert.deepEqual(history, []);
++  });
++});
++
++test("appendAffiliateHistoryEntryはid付きのエントリを返し、既定でstatus:'selected'になる", async () => {
++  await withTempHistoryFile(async (filePath) => {
++    const entry = await appendAffiliateHistoryEntry(
++      { productId: "p1", productName: "商品A", selectedAt: "2026-07-16T00:00:00.000Z" },
++      filePath
++    );
++    assert.ok(entry.id && entry.id.length > 0);
++    assert.equal(entry.status, "selected");
++
++    const history = await loadAffiliateHistory(filePath);
++    assert.equal(history.length, 1);
++    assert.equal(history[0].productId, "p1");
++  });
++});
++
++test("updateAffiliateHistoryEntryで投稿結果を既存エントリへ反映できる", async () => {
++  await withTempHistoryFile(async (filePath) => {
++    const entry = await appendAffiliateHistoryEntry(
++      { productId: "p1", productName: "商品A", selectedAt: "2026-07-16T00:00:00.000Z", slot: "affiliate" },
++      filePath
++    );
++    const updated = await updateAffiliateHistoryEntry(
++      entry.id!,
++      { status: "posted", postedAt: "2026-07-16T10:05:00.000Z", tweetIds: ["t1"], slot: "affiliate" },
++      filePath
++    );
++    assert.equal(updated?.status, "posted");
++    assert.equal(updated?.postedAt, "2026-07-16T10:05:00.000Z");
++    assert.deepEqual(updated?.tweetIds, ["t1"]);
++  });
++});
++
++test("updateAffiliateHistoryEntryは存在しないidに対してnullを返し、履歴を書き換えない", async () => {
++  await withTempHistoryFile(async (filePath) => {
++    await appendAffiliateHistoryEntry({ productId: "p1", productName: "商品A", selectedAt: "2026-07-16T00:00:00.000Z" }, filePath);
++    const result = await updateAffiliateHistoryEntry("non-existent-id", { status: "posted" }, filePath);
++    assert.equal(result, null);
++  });
++});
++
++function historyEntry(
++  overrides: Partial<AffiliatePostHistoryEntry> & { productId: string; productName: string }
++): AffiliatePostHistoryEntry {
++  return { selectedAt: "2026-07-16T00:00:00.000Z", ...overrides };
++}
++
++test("hasPostedAffiliateSlotOnDateは同一枠・同一日にstatus:'posted'のエントリがあればtrueを返す", () => {
++  const history: AffiliatePostHistoryEntry[] = [
++    historyEntry({
++      productId: "p1",
++      productName: "商品A",
++      slot: "affiliate",
++      status: "posted",
++      postedAt: "2026-07-16T10:00:00.000Z",
++    }),
++  ];
++  const referenceDate = new Date("2026-07-16T12:00:00.000Z");
++  assert.equal(hasPostedAffiliateSlotOnDate(history, "affiliate", referenceDate), true);
++});
++
++test("hasPostedAffiliateSlotOnDateは別日・別枠・status未達ならfalseを返す", () => {
++  const history: AffiliatePostHistoryEntry[] = [
++    historyEntry({
++      productId: "p1",
++      productName: "商品A",
++      slot: "affiliate",
++      status: "posted",
++      postedAt: "2026-07-15T10:00:00.000Z", // 前日
++    }),
++    historyEntry({
++      productId: "p2",
++      productName: "商品B",
++      slot: "affiliate",
++      status: "failed", // 未達
++      postedAt: "2026-07-16T10:00:00.000Z",
++    }),
++  ];
++  const referenceDate = new Date("2026-07-16T12:00:00.000Z");
++  assert.equal(hasPostedAffiliateSlotOnDate(history, "affiliate", referenceDate), false);
++});
++
++test("hasPostedAffiliateSlotOnDate(回帰): UTC日境界をまたいでもJST基準で判定する", () => {
++  // 19:00 JST投稿 = UTC10:00。同日JST内の再実行(UTC13:00 = 22:00 JST)でも同一JST暦日と判定されること。
++  const history: AffiliatePostHistoryEntry[] = [
++    historyEntry({
++      productId: "p1",
++      productName: "商品A",
++      slot: "affiliate",
++      status: "posted",
++      postedAt: "2026-07-16T10:00:00.000Z", // = 2026-07-16T19:00:00+09:00
++    }),
++  ];
++  const secondRunAt = new Date("2026-07-16T13:00:00.000Z"); // = 2026-07-16T22:00:00+09:00(同一JST暦日)
++  assert.equal(hasPostedAffiliateSlotOnDate(history, "affiliate", secondRunAt), true);
++});
++
++test("countPostedByProductはstatus:'posted'のエントリのみを商品ごとに集計する", () => {
++  const history: AffiliatePostHistoryEntry[] = [
++    historyEntry({ productId: "p1", productName: "A", status: "posted", postedAt: "2026-07-14T00:00:00.000Z" }),
++    historyEntry({ productId: "p1", productName: "A", status: "posted", postedAt: "2026-07-15T00:00:00.000Z" }),
++    historyEntry({ productId: "p1", productName: "A", status: "failed", postedAt: "2026-07-16T00:00:00.000Z" }),
++    historyEntry({ productId: "p2", productName: "B", status: "posted", postedAt: "2026-07-16T00:00:00.000Z" }),
++    historyEntry({ productId: "p3", productName: "C", status: "selected" }),
++  ];
++  const counts = countPostedByProduct(history);
++  assert.equal(counts.get("p1"), 2);
++  assert.equal(counts.get("p2"), 1);
++  assert.equal(counts.get("p3"), undefined);
++});
++
++test("lastPostedAtByProductは商品ごとの最終投稿日時(最新)を返す", () => {
++  const history: AffiliatePostHistoryEntry[] = [
++    historyEntry({ productId: "p1", productName: "A", status: "posted", postedAt: "2026-07-14T00:00:00.000Z" }),
++    historyEntry({ productId: "p1", productName: "A", status: "posted", postedAt: "2026-07-16T00:00:00.000Z" }),
++    historyEntry({ productId: "p2", productName: "B", status: "selected" }),
++  ];
++  const lastPosted = lastPostedAtByProduct(history);
++  assert.equal(lastPosted.get("p1"), "2026-07-16T00:00:00.000Z");
++  assert.equal(lastPosted.get("p2"), undefined);
++});
+diff --git a/test/affiliatePipeline.test.ts b/test/affiliatePipeline.test.ts
+new file mode 100644
+index 0000000..fc5da4a
+--- /dev/null
++++ b/test/affiliatePipeline.test.ts
+@@ -0,0 +1,162 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import {
++  runAffiliatePostingPipeline,
++  dryRunAffiliatePublish,
++  type AffiliatePipelineDependencies,
++  type AffiliatePublishFn,
++} from "../src/affiliatePipeline.js";
++import type { AffiliateProduct } from "../src/affiliateProducts.js";
++import type { AffiliatePostHistoryEntry } from "../src/affiliateHistory.js";
++import type { ThreadTweet } from "../src/threadSplit.js";
++
++function product(overrides: Partial<AffiliateProduct> & { id: string }): AffiliateProduct {
++  return {
++    name: `商品${overrides.id}`,
++    officialUrl: `https://example.com/${overrides.id}`,
++    affiliateUrl: `https://affiliate.example.com/${overrides.id}`,
++    facts: ["特長1"],
++    enabled: true,
++    ...overrides,
++  };
++}
++
++function buildMockDeps(overrides: Partial<AffiliatePipelineDependencies> = {}): {
++  deps: Partial<AffiliatePipelineDependencies>;
++  appendHistoryCalls: unknown[];
++} {
++  const p = product({ id: "p1" });
++  const appendHistoryCalls: unknown[] = [];
++
++  const deps: Partial<AffiliatePipelineDependencies> = {
++    loadProducts: async () => [p],
++    loadHistory: async () => [],
++    select: () => ({ selected: p, reason: "テスト用選定", consideredCount: 1, enabledCount: 1 }),
++    generate: async () => ({ success: true, text: "【PR】生成されたテスト用の紹介文です。", product: p }),
++    buildThread: (text, url) => [
++      { index: 1, text, charLength: text.length, kind: "body" },
++      { index: 2, text: `商品ページ: ${url}`, charLength: `商品ページ: ${url}`.length, kind: "link" },
++    ],
++    appendHistory: async (entry) => {
++      appendHistoryCalls.push(entry);
++      return { ...entry, id: "history-id-1" };
++    },
++    updateHistory: async () => null,
++    ...overrides,
++  };
++
++  return { deps, appendHistoryCalls };
++}
++
++test("ドライラン: 選定→生成→分割→リンク付与が通り、投稿予定の全ツイートが得られる", async () => {
++  const { deps } = buildMockDeps();
++  const result = await runAffiliatePostingPipeline({ writeHistory: false, publish: dryRunAffiliatePublish, deps });
++
++  assert.equal(result.success, true);
++  assert.equal(result.stage, "done");
++  assert.equal(result.product?.id, "p1");
++  assert.equal(result.tweets?.length, 2);
++  assert.equal(result.historyWritten, false);
++});
++
++test("商品リストが空の場合、投稿対象なしとして安全にスキップされる(エラーにならない)", async () => {
++  const { deps } = buildMockDeps({
++    loadProducts: async () => [],
++    select: (products) => ({
++      selected: null,
++      reason: "商品リストが空のため投稿対象なし",
++      consideredCount: products.length,
++      enabledCount: 0,
++    }),
++  });
++
++  const result = await runAffiliatePostingPipeline({ writeHistory: false, publish: dryRunAffiliatePublish, deps });
++
++  assert.equal(result.success, false);
++  assert.equal(result.stage, "select");
++  assert.equal(result.skipReason, "no-eligible-product");
++  assert.match(result.error ?? "", /商品リストが空/);
++});
++
++test("writeHistory:trueの場合、選定結果が履歴に記録される", async () => {
++  const { deps, appendHistoryCalls } = buildMockDeps();
++  const result = await runAffiliatePostingPipeline({ writeHistory: true, publish: dryRunAffiliatePublish, deps });
++
++  assert.equal(result.success, true);
++  assert.equal(result.historyWritten, true);
++  assert.equal(appendHistoryCalls.length, 1);
++});
++
++test("生成失敗時はパイプラインがgenerate段階で停止し、履歴に書き込まない", async () => {
++  const { deps, appendHistoryCalls } = buildMockDeps({
++    generate: async (p) => ({ success: false, error: "生成に失敗しました(テスト)", product: p }),
++  });
++
++  const result = await runAffiliatePostingPipeline({ writeHistory: true, publish: dryRunAffiliatePublish, deps });
++
++  assert.equal(result.success, false);
++  assert.equal(result.stage, "generate");
++  assert.equal(result.historyWritten, false);
++  assert.equal(appendHistoryCalls.length, 0);
++});
++
++test("冪等性: 同一slot・同一日にstatus:'posted'の履歴があれば、収集・生成を一切行わずスキップする", async () => {
++  const p = product({ id: "p1" });
++  let generateCalled = false;
++  const history: AffiliatePostHistoryEntry[] = [
++    {
++      id: "h1",
++      productId: "p1",
++      productName: "商品p1",
++      slot: "affiliate",
++      selectedAt: "2026-07-16T10:00:00.000Z",
++      status: "posted",
++      postedAt: "2026-07-16T10:00:00.000Z",
++    },
++  ];
++  const { deps } = buildMockDeps({
++    loadHistory: async () => history,
++    generate: async () => {
++      generateCalled = true;
++      return { success: true, text: "【PR】テスト", product: p };
++    },
++  });
++
++  const result = await runAffiliatePostingPipeline({
++    writeHistory: true,
++    publish: dryRunAffiliatePublish,
++    slot: "affiliate",
++    scheduledAt: "2026-07-16T10:00:00.000Z",
++    now: new Date("2026-07-16T11:00:00.000Z"),
++    deps,
++  });
++
++  assert.equal(result.success, false);
++  assert.equal(result.stage, "skipped");
++  assert.equal(result.skipReason, "already-posted");
++  assert.equal(generateCalled, false);
++});
++
++test("本番投稿成功時、履歴エントリが投稿結果(posted)で更新される", async () => {
++  const updateCalls: { id: string; updates: unknown }[] = [];
++  const { deps } = buildMockDeps({
++    updateHistory: async (id, updates) => {
++      updateCalls.push({ id, updates });
++      return null;
++    },
++  });
++
++  const fakePublish: AffiliatePublishFn = async (tweets: ThreadTweet[]) => ({
++    posted: true,
++    detail: "投稿しました",
++    tweetIds: tweets.map((t) => `tweet-${t.index}`),
++    postedAt: "2026-07-16T10:00:05.000Z",
++  });
++
++  const result = await runAffiliatePostingPipeline({ writeHistory: true, publish: fakePublish, deps });
++
++  assert.equal(result.success, true);
++  assert.equal(result.publishResult?.posted, true);
++  assert.equal(updateCalls.length, 1);
++  assert.equal((updateCalls[0].updates as { status: string }).status, "posted");
++});
+diff --git a/test/affiliateProducts.test.ts b/test/affiliateProducts.test.ts
+new file mode 100644
+index 0000000..7c52ee4
+--- /dev/null
++++ b/test/affiliateProducts.test.ts
+@@ -0,0 +1,87 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { mkdtemp, rm, writeFile } from "node:fs/promises";
++import { tmpdir } from "node:os";
++import path from "node:path";
++import { loadAffiliateProducts, filterEnabledProducts, type AffiliateProduct } from "../src/affiliateProducts.js";
++
++async function withTempFile(fn: (filePath: string) => Promise<void>) {
++  const dir = await mkdtemp(path.join(tmpdir(), "affiliate-products-test-"));
++  const filePath = path.join(dir, "affiliate-products.json");
++  try {
++    await fn(filePath);
++  } finally {
++    await rm(dir, { recursive: true, force: true });
++  }
++}
++
++test("loadAffiliateProductsはファイルが存在しない場合、空配列を返す(エラーにしない)", async () => {
++  await withTempFile(async (filePath) => {
++    const products = await loadAffiliateProducts(filePath);
++    assert.deepEqual(products, []);
++  });
++});
++
++test("loadAffiliateProductsは空配列のファイルをそのまま読み込める", async () => {
++  await withTempFile(async (filePath) => {
++    await writeFile(filePath, "[]", "utf-8");
++    const products = await loadAffiliateProducts(filePath);
++    assert.deepEqual(products, []);
++  });
++});
++
++test("loadAffiliateProductsは登録済み商品をそのまま読み込める", async () => {
++  await withTempFile(async (filePath) => {
++    const products: AffiliateProduct[] = [
++      {
++        id: "p1",
++        name: "テスト商品A",
++        officialUrl: "https://example.com/a",
++        affiliateUrl: "https://affiliate.example.com/a",
++        facts: ["特長1", "特長2"],
++        enabled: true,
++      },
++    ];
++    await writeFile(filePath, JSON.stringify(products, null, 2), "utf-8");
++    const loaded = await loadAffiliateProducts(filePath);
++    assert.equal(loaded.length, 1);
++    assert.equal(loaded[0].id, "p1");
++  });
++});
++
++test("loadAffiliateProductsはJSON配列でない中身をエラーとして投げる(壊れた設定で進めない)", async () => {
++  await withTempFile(async (filePath) => {
++    await writeFile(filePath, JSON.stringify({ notAnArray: true }), "utf-8");
++    await assert.rejects(() => loadAffiliateProducts(filePath), /JSON配列/);
++  });
++});
++
++test("loadAffiliateProductsは壊れたJSONをエラーとして投げる", async () => {
++  await withTempFile(async (filePath) => {
++    await writeFile(filePath, "{ this is not valid json", "utf-8");
++    await assert.rejects(() => loadAffiliateProducts(filePath));
++  });
++});
++
++function product(overrides: Partial<AffiliateProduct> & { id: string; enabled: boolean }): AffiliateProduct {
++  return {
++    name: "商品",
++    officialUrl: "https://example.com",
++    affiliateUrl: "https://affiliate.example.com",
++    facts: [],
++    ...overrides,
++  };
++}
++
++test("filterEnabledProductsはenabled:trueの商品のみを返す", () => {
++  const products = [
++    product({ id: "a", enabled: true }),
++    product({ id: "b", enabled: false }),
++    product({ id: "c", enabled: true }),
++  ];
++  const enabled = filterEnabledProducts(products);
++  assert.deepEqual(
++    enabled.map((p) => p.id),
++    ["a", "c"]
++  );
++});
+diff --git a/test/affiliateThread.test.ts b/test/affiliateThread.test.ts
+new file mode 100644
+index 0000000..e69ddfd
+--- /dev/null
++++ b/test/affiliateThread.test.ts
+@@ -0,0 +1,25 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { composeAffiliateThread, buildAffiliateLinkTweetText } from "../src/affiliateThread.js";
++import { TWEET_CHAR_LIMIT } from "../src/tweetLength.js";
++
++test("composeAffiliateThreadは短い本文なら本文1件+リンク1件の計2件を返す", () => {
++  const tweets = composeAffiliateThread("【PR】これは短い紹介文です。", "https://affiliate.example.com/p1");
++  assert.equal(tweets.length, 2);
++  assert.equal(tweets[0].kind, "body");
++  assert.equal(tweets[1].kind, "link");
++  assert.match(tweets[1].text, /https:\/\/affiliate\.example\.com\/p1/);
++});
++
++test("composeAffiliateThreadは各ツイートが文字数上限以内に収まる", () => {
++  const longBody = `【PR】${"紹介文の本文です。".repeat(60)}`;
++  const tweets = composeAffiliateThread(longBody, "https://affiliate.example.com/p1");
++  for (const tweet of tweets) {
++    assert.ok(tweet.charLength <= TWEET_CHAR_LIMIT);
++  }
++});
++
++test("buildAffiliateLinkTweetTextはアフィリエイトリンクを含む", () => {
++  const text = buildAffiliateLinkTweetText("https://affiliate.example.com/p1");
++  assert.match(text, /https:\/\/affiliate\.example\.com\/p1/);
++});
+diff --git a/test/config.test.ts b/test/config.test.ts
+index f45d752..f7b8fc4 100644
+--- a/test/config.test.ts
++++ b/test/config.test.ts
+@@ -10,6 +10,8 @@ import {
+   assertValidConfig,
+   ConfigError,
+   DEFAULT_TONE,
++  getAffiliatePostSlot,
++  getAffiliateMaxPostsPerProduct,
+ } from "../src/config.js";
+ 
+ test("F12: 環境変数が未設定なら既定値(投稿時刻07:30/12:15/21:00等)を返す", () => {
+@@ -131,6 +133,34 @@ test("F12: assertValidConfigはX API認証情報が4つとも未設定、また
+   );
+ });
+ 
++test("アフィリエイト: 環境変数未設定なら既定値(19:00 JST、上限3回)を返す", () => {
++  const env = {} as NodeJS.ProcessEnv;
++  const slot = getAffiliatePostSlot(env);
++  assert.equal(slot.id, "affiliate");
++  assert.equal(slot.hourJst, 19);
++  assert.equal(slot.minuteJst, 0);
++  assert.equal(getAffiliateMaxPostsPerProduct(env), 3);
++});
++
++test("アフィリエイト: AFFILIATE_POST_TIME/AFFILIATE_MAX_POSTS_PER_PRODUCTで値を上書きできる", () => {
++  const env = { AFFILIATE_POST_TIME: "20:30", AFFILIATE_MAX_POSTS_PER_PRODUCT: "5" } as NodeJS.ProcessEnv;
++  const slot = getAffiliatePostSlot(env);
++  assert.equal(slot.hourJst, 20);
++  assert.equal(slot.minuteJst, 30);
++  assert.equal(getAffiliateMaxPostsPerProduct(env), 5);
++});
++
++test("アフィリエイト: 不正な値は既定値にフォールバックする(getter単体呼び出し時)", () => {
++  assert.equal(getAffiliatePostSlot({ AFFILIATE_POST_TIME: "25:99" } as NodeJS.ProcessEnv).hourJst, 19);
++  assert.equal(getAffiliateMaxPostsPerProduct({ AFFILIATE_MAX_POSTS_PER_PRODUCT: "0" } as NodeJS.ProcessEnv), 3);
++  assert.equal(getAffiliateMaxPostsPerProduct({ AFFILIATE_MAX_POSTS_PER_PRODUCT: "abc" } as NodeJS.ProcessEnv), 3);
++});
++
++test("アフィリエイト: assertValidConfigは不正なAFFILIATE_POST_TIME/AFFILIATE_MAX_POSTS_PER_PRODUCTを検知する", () => {
++  assert.throws(() => assertValidConfig({ AFFILIATE_POST_TIME: "bad" } as NodeJS.ProcessEnv), ConfigError);
++  assert.throws(() => assertValidConfig({ AFFILIATE_MAX_POSTS_PER_PRODUCT: "-1" } as NodeJS.ProcessEnv), ConfigError);
++});
++
+ test("F12: assertValidConfigは複数の不正値を一度にまとめて検知する", () => {
+   const env = {
+     POST_SLOT_MORNING_TIME: "bad",
+diff --git a/test/generateAffiliatePost.test.ts b/test/generateAffiliatePost.test.ts
+new file mode 100644
+index 0000000..6047241
+--- /dev/null
++++ b/test/generateAffiliatePost.test.ts
+@@ -0,0 +1,160 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import type Anthropic from "@anthropic-ai/sdk";
++import {
++  buildAffiliateGenerationPrompt,
++  ensurePrLabel,
++  validateAffiliateGeneratedText,
++  generateAffiliatePostText,
++  PR_LABEL,
++  MAX_GENERATED_LENGTH,
++} from "../src/generateAffiliatePost.js";
++import { DEFAULT_MODEL, type AnthropicMessageClient } from "../src/generatePost.js";
++import type { AffiliateProduct } from "../src/affiliateProducts.js";
++
++function product(overrides: Partial<AffiliateProduct> & { id: string }): AffiliateProduct {
++  return {
++    name: `商品${overrides.id}`,
++    officialUrl: `https://example.com/${overrides.id}`,
++    affiliateUrl: `https://affiliate.example.com/${overrides.id}`,
++    facts: ["容量は500ml", "国内正規品"],
++    enabled: true,
++    ...overrides,
++  };
++}
++
++function fakeMessage(text: string): Anthropic.Message {
++  return {
++    id: "msg_test",
++    type: "message",
++    role: "assistant",
++    model: DEFAULT_MODEL,
++    content: [{ type: "text", text, citations: null }],
++    stop_reason: "end_turn",
++    stop_sequence: null,
++    stop_details: null,
++    usage: { input_tokens: 10, output_tokens: 20 },
++    container: null,
++  } as unknown as Anthropic.Message;
++}
++
++function mockClient(responseText: string): { client: AnthropicMessageClient; calls: unknown[] } {
++  const calls: unknown[] = [];
++  const client: AnthropicMessageClient = {
++    messages: {
++      create: async (params) => {
++        calls.push(params);
++        return fakeMessage(responseText);
++      },
++    },
++  };
++  return { client, calls };
++}
++
++test("buildAffiliateGenerationPromptはシステムプロンプトに【PR】表記の必須指示を含む", () => {
++  const p = product({ id: "p1" });
++  const prompt = buildAffiliateGenerationPrompt(p);
++  assert.match(prompt.system, /【PR】/);
++  assert.match(prompt.system, /省略不可|必須/);
++});
++
++test("buildAffiliateGenerationPromptは事実に無い情報の創作を禁止する指示を含む", () => {
++  const p = product({ id: "p1" });
++  const prompt = buildAffiliateGenerationPrompt(p);
++  assert.match(prompt.system, /創作/);
++  assert.match(prompt.system, /事実/);
++});
++
++test("buildAffiliateGenerationPromptは一人称の体験談を禁止する指示を含む", () => {
++  const p = product({ id: "p1" });
++  const prompt = buildAffiliateGenerationPrompt(p);
++  assert.match(prompt.system, /私は使ってみて/);
++  assert.match(prompt.system, /体験談.*禁止|捏造/);
++});
++
++test("buildAffiliateGenerationPromptはfactsをユーザープロンプトに含める", () => {
++  const p = product({ id: "p1", facts: ["容量500ml", "送料無料"] });
++  const prompt = buildAffiliateGenerationPrompt(p);
++  assert.match(prompt.user, /容量500ml/);
++  assert.match(prompt.user, /送料無料/);
++  assert.match(prompt.user, /商品p1/);
++});
++
++test("ensurePrLabelは先頭に【PR】が無ければ付与する", () => {
++  const result = ensurePrLabel("これは紹介文です。");
++  assert.ok(result.startsWith(PR_LABEL));
++});
++
++test("ensurePrLabelは既に先頭にある場合そのまま(重複しない)", () => {
++  const result = ensurePrLabel(`${PR_LABEL} これは紹介文です。`);
++  assert.equal(result, `${PR_LABEL} これは紹介文です。`);
++});
++
++test("ensurePrLabelは本文途中に紛れ込んだ表記を除去し、先頭に1つだけ配置する", () => {
++  const result = ensurePrLabel(`これは紹介文です。${PR_LABEL}末尾にありました`);
++  const occurrences = result.split(PR_LABEL).length - 1;
++  assert.equal(occurrences, 1);
++  assert.ok(result.startsWith(PR_LABEL));
++});
++
++test("validateAffiliateGeneratedTextは【PR】が先頭に無い場合を無効と判定する", () => {
++  const result = validateAffiliateGeneratedText("これは紹介文です。");
++  assert.equal(result.valid, false);
++  assert.match(result.reason ?? "", /【PR】/);
++});
++
++test("validateAffiliateGeneratedTextは【PR】始まりの正常な文面を有効と判定する", () => {
++  const result = validateAffiliateGeneratedText(`${PR_LABEL} これは紹介文です。`);
++  assert.equal(result.valid, true);
++});
++
++test("validateAffiliateGeneratedTextは空文字列・長すぎる文面を無効と判定する", () => {
++  assert.equal(validateAffiliateGeneratedText("").valid, false);
++  const tooLong = `${PR_LABEL} ${"あ".repeat(MAX_GENERATED_LENGTH)}`;
++  assert.equal(validateAffiliateGeneratedText(tooLong).valid, false);
++});
++
++test("generateAffiliatePostTextはクライアントがnull(APIキー未設定)の場合、失敗を返し例外を投げない", async () => {
++  const p = product({ id: "p1" });
++  const result = await generateAffiliatePostText(p, null);
++  assert.equal(result.success, false);
++  if (!result.success) {
++    assert.match(result.error, /ANTHROPIC_API_KEY/);
++  }
++});
++
++test("generateAffiliatePostTextは生成結果に【PR】が無くても、安全網により必ず先頭に付与されて成功する", async () => {
++  const p = product({ id: "p1" });
++  const { client } = mockClient("この商品は容量500mlで国内正規品です。");
++  const result = await generateAffiliatePostText(p, client);
++  assert.equal(result.success, true);
++  if (result.success) {
++    assert.ok(result.text.startsWith(PR_LABEL));
++  }
++});
++
++test("generateAffiliatePostTextはAPI呼び出しが例外を投げた場合も失敗として安全に返す", async () => {
++  const p = product({ id: "p1" });
++  const client: AnthropicMessageClient = {
++    messages: {
++      create: async () => {
++        throw new Error("simulated network failure");
++      },
++    },
++  };
++  const result = await generateAffiliatePostText(p, client);
++  assert.equal(result.success, false);
++  if (!result.success) {
++    assert.match(result.error, /simulated network failure/);
++  }
++});
++
++test("generateAffiliatePostTextは生成結果が長すぎる場合、失敗として扱う", async () => {
++  const p = product({ id: "p1" });
++  const { client } = mockClient("あ".repeat(700));
++  const result = await generateAffiliatePostText(p, client);
++  assert.equal(result.success, false);
++  if (!result.success) {
++    assert.match(result.error, /長すぎ/);
++  }
++});
+diff --git a/test/postSchedule.test.ts b/test/postSchedule.test.ts
+index 7983871..d73b979 100644
+--- a/test/postSchedule.test.ts
++++ b/test/postSchedule.test.ts
+@@ -1,6 +1,6 @@
+ import { test } from "node:test";
+ import assert from "node:assert/strict";
+-import { POST_SLOTS, resolveCurrentSlot } from "../src/postSchedule.js";
++import { POST_SLOTS, resolveCurrentSlot, resolveCurrentAffiliateSlot } from "../src/postSchedule.js";
+ 
+ test("F7: POST_SLOTSは朝07:30/昼12:15/夜21:00 JSTの3枠として1箇所で定義されている", () => {
+   assert.equal(POST_SLOTS.length, 3);
+@@ -79,3 +79,35 @@ test("F7: toleranceHoursを明示的に指定するとその値が使われる(
+   assert.ok(resolvedWithWiderTolerance);
+   assert.equal(resolvedWithWiderTolerance?.slot, "morning");
+ });
++
++test("アフィリエイト: resolveCurrentAffiliateSlotは19:00 JSTちょうどでaffiliateと判定される", () => {
++  // 2026-07-16 19:00:00 JST = 2026-07-16 10:00:00 UTC
++  const now = new Date("2026-07-16T10:00:00.000Z");
++  const resolved = resolveCurrentAffiliateSlot(now, 3);
++  assert.ok(resolved);
++  assert.equal(resolved?.slot, "affiliate");
++  assert.equal(resolved?.scheduledAt, "2026-07-16T10:00:00.000Z");
++});
++
++test("アフィリエイト: resolveCurrentAffiliateSlotは許容範囲外・枠より前ではnullを返す", () => {
++  const beforeSlot = new Date("2026-07-16T09:59:59.000Z"); // 18:59:59 JST、1秒前
++  assert.equal(resolveCurrentAffiliateSlot(beforeSlot, 3), null);
++
++  const afterTolerance = new Date("2026-07-16T13:00:01.000Z"); // 19:00 + 3時間 + 1秒
++  assert.equal(resolveCurrentAffiliateSlot(afterTolerance, 3), null);
++});
++
++test("アフィリエイト(回帰): resolveCurrentAffiliateSlotはUTC日境界をまたいでも正しく判定される", () => {
++  // 前日19:00 JST + 3時間 = 深夜22:00 JST(日付は変わらないがUTCでは日付が変わる境界を含むケース)
++  const now = new Date("2026-07-16T13:00:00.000Z"); // = 2026-07-16T22:00:00+09:00、前日ではなく当日19:00枠から3時間後
++  const resolved = resolveCurrentAffiliateSlot(now, 3);
++  assert.ok(resolved);
++  assert.equal(resolved?.slot, "affiliate");
++  assert.equal(resolved?.scheduledAt, "2026-07-16T10:00:00.000Z");
++});
++
++test("アフィリエイト: AIニュース枠(POST_SLOTS)とは独立して判定される(AIニュース枠の時刻ではnull)", () => {
++  // 朝枠07:30 JSTの時刻ではアフィリエイト枠は該当しない
++  const now = new Date("2026-07-15T22:30:00.000Z");
++  assert.equal(resolveCurrentAffiliateSlot(now, 3), null);
++});
+diff --git a/test/selectAffiliateProduct.test.ts b/test/selectAffiliateProduct.test.ts
+new file mode 100644
+index 0000000..9f75c02
+--- /dev/null
++++ b/test/selectAffiliateProduct.test.ts
+@@ -0,0 +1,96 @@
++import { test } from "node:test";
++import assert from "node:assert/strict";
++import { selectAffiliateProduct } from "../src/selectAffiliateProduct.js";
++import type { AffiliateProduct } from "../src/affiliateProducts.js";
++import type { AffiliatePostHistoryEntry } from "../src/affiliateHistory.js";
++
++function product(overrides: Partial<AffiliateProduct> & { id: string }): AffiliateProduct {
++  return {
++    name: `商品${overrides.id}`,
++    officialUrl: `https://example.com/${overrides.id}`,
++    affiliateUrl: `https://affiliate.example.com/${overrides.id}`,
++    facts: ["特長1"],
++    enabled: true,
++    ...overrides,
++  };
++}
++
++function historyEntry(
++  overrides: Partial<AffiliatePostHistoryEntry> & { productId: string; productName: string }
++): AffiliatePostHistoryEntry {
++  return { selectedAt: "2026-07-01T00:00:00.000Z", ...overrides };
++}
++
++test("商品リストが空の場合、投稿対象なしとして安全にスキップする", () => {
++  const result = selectAffiliateProduct([], [], 3);
++  assert.equal(result.selected, null);
++  assert.match(result.reason, /商品リストが空/);
++  assert.equal(result.consideredCount, 0);
++});
++
++test("enabled:trueの商品が0件の場合、投稿対象なしとしてスキップする", () => {
++  const products = [product({ id: "p1", enabled: false })];
++  const result = selectAffiliateProduct(products, [], 3);
++  assert.equal(result.selected, null);
++  assert.match(result.reason, /enabled:true.*0件|0件.*enabled/);
++  assert.equal(result.enabledCount, 0);
++});
++
++test("未投稿の商品が複数ある場合、いずれかを選定する(投稿対象あり)", () => {
++  const products = [product({ id: "p1" }), product({ id: "p2" })];
++  const result = selectAffiliateProduct(products, [], 3);
++  assert.ok(result.selected);
++  assert.ok(["p1", "p2"].includes(result.selected!.id));
++});
++
++test("最も直近に投稿していない商品(未投稿を最優先)を選ぶ", () => {
++  const products = [product({ id: "p1" }), product({ id: "p2" })];
++  // p1は投稿済み、p2は未投稿 → p2が優先されるべき
++  const history: AffiliatePostHistoryEntry[] = [
++    historyEntry({ productId: "p1", productName: "商品p1", status: "posted", postedAt: "2026-07-15T00:00:00.000Z" }),
++  ];
++  const result = selectAffiliateProduct(products, history, 3);
++  assert.equal(result.selected?.id, "p2");
++});
++
++test("未投稿の商品が無い場合、最も古く投稿された商品を選ぶ(ローテーション)", () => {
++  const products = [product({ id: "p1" }), product({ id: "p2" })];
++  const history: AffiliatePostHistoryEntry[] = [
++    historyEntry({ productId: "p1", productName: "商品p1", status: "posted", postedAt: "2026-07-16T00:00:00.000Z" }),
++    historyEntry({ productId: "p2", productName: "商品p2", status: "posted", postedAt: "2026-07-10T00:00:00.000Z" }),
++  ];
++  const result = selectAffiliateProduct(products, history, 3);
++  assert.equal(result.selected?.id, "p2"); // より古く投稿されたp2が優先される
++});
++
++test("同一商品の投稿回数が上限に達している場合、その商品は選定対象から除外される", () => {
++  const products = [product({ id: "p1" })];
++  const history: AffiliatePostHistoryEntry[] = [
++    historyEntry({ productId: "p1", productName: "商品p1", status: "posted", postedAt: "2026-07-01T00:00:00.000Z" }),
++    historyEntry({ productId: "p1", productName: "商品p1", status: "posted", postedAt: "2026-07-02T00:00:00.000Z" }),
++    historyEntry({ productId: "p1", productName: "商品p1", status: "posted", postedAt: "2026-07-03T00:00:00.000Z" }),
++  ];
++  const result = selectAffiliateProduct(products, history, 3);
++  assert.equal(result.selected, null);
++  assert.match(result.reason, /上限/);
++});
++
++test("上限に達していない商品と達している商品が混在する場合、達していない方を選ぶ", () => {
++  const products = [product({ id: "p1" }), product({ id: "p2" })];
++  const history: AffiliatePostHistoryEntry[] = [
++    historyEntry({ productId: "p1", productName: "商品p1", status: "posted", postedAt: "2026-07-01T00:00:00.000Z" }),
++    historyEntry({ productId: "p1", productName: "商品p1", status: "posted", postedAt: "2026-07-02T00:00:00.000Z" }),
++    historyEntry({ productId: "p1", productName: "商品p1", status: "posted", postedAt: "2026-07-03T00:00:00.000Z" }),
++  ];
++  const result = selectAffiliateProduct(products, history, 3);
++  assert.equal(result.selected?.id, "p2");
++});
++
++test("maxPostsPerProductを1に指定すると1回投稿済みの商品も除外される", () => {
++  const products = [product({ id: "p1" })];
++  const history: AffiliatePostHistoryEntry[] = [
++    historyEntry({ productId: "p1", productName: "商品p1", status: "posted", postedAt: "2026-07-01T00:00:00.000Z" }),
++  ];
++  const result = selectAffiliateProduct(products, history, 1);
++  assert.equal(result.selected, null);
++});
