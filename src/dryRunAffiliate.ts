@@ -15,6 +15,7 @@ import { runAffiliatePostingPipeline, dryRunAffiliatePublish } from "./affiliate
 import { TWEET_CHAR_LIMIT } from "./tweetLength.js";
 import { resolveCurrentAffiliateSlot } from "./postSchedule.js";
 import { getAccountProfile } from "./accounts.js";
+import { AFFILIATE_SLOT_ID } from "./config.js";
 import type { ThreadTweet } from "./threadSplit.js";
 
 /** CLIから直接実行された場合のみ、リポジトリ直下の.env(存在すれば)をprocess.envへ読み込む */
@@ -52,6 +53,13 @@ async function main() {
   let slot = readArgValue(args, "--slot");
   let scheduledAt = readArgValue(args, "--scheduled-at");
 
+  // --force 指定時は、投稿枠の時間帯チェック(--auto-slotの時刻判定)をスキップし即座に実行する
+  // (手動テスト用。19:00 JST以外の時間帯でも動作確認したい場合に使う)。ただし冪等性チェック
+  // (同一slot・同日の重複投稿防止、runAffiliatePostingPipeline内のhasPostedAffiliateSlotOnDate)は
+  // slotをAFFILIATE_SLOT_IDに設定することで引き続き有効にする。scheduledAtは設定しないため、
+  // 不発リカバリの許容範囲チェック(時間帯チェック)だけがスキップされる。
+  const force = args.includes("--force");
+
   // --auto-slot 指定時は、現在時刻(または --now で注入したテスト用時刻)からアフィリエイト投稿枠
   // (既定19:00 JST)に該当するかを自動判定する。外部cronサービスからはこのフラグで起動する想定。
   const autoSlot = args.includes("--auto-slot");
@@ -86,6 +94,9 @@ async function main() {
     slot = resolved.slot;
     scheduledAt = resolved.scheduledAt;
     log.info(`auto-slot resolved to "${resolved.label}" (${resolved.slot})`, { scheduledAt });
+  } else if (force) {
+    slot = AFFILIATE_SLOT_ID;
+    log.info("force: skipping affiliate posting slot timing check; running immediately", { slot });
   }
 
   log.info("running affiliate dry run pipeline (select -> generate -> thread, no posting to X)", {

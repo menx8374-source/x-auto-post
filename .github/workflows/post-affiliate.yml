@@ -5,6 +5,9 @@ name: X アフィリエイト投稿実行(外部cron経由のworkflow_dispatch)
 # (data/history/affiliate-post-history.json)も別のため、互いのcron起動・冪等性判定に影響しない。
 # 実行内容は `npm run post:affiliate -- --auto-slot`(本番投稿)相当。
 # 手動実行時は mode=dryrun を選べば実際にXへは投稿せず動作確認だけできる。
+# また force=true を指定すると、19:00 JST目安の時間帯チェックをスキップして即座に選定・生成・
+# 投稿(またはドライラン)を実行できる(手動テスト用。冪等性チェック(同日重複投稿防止・
+# ローテーション上限)は force=true でも引き続き有効)。
 #
 # 外部cron側の設定手順は docs/cron-setup.md の既存手順に準じ、アフィリエイト用ジョブを追加する
 # (叩くworkflow名を "X アフィリエイト投稿実行..." に変える以外は同じ手順)。
@@ -25,6 +28,11 @@ on:
         type: string
         required: false
         default: "ai-news"
+      force:
+        description: "true=投稿枠の時間帯チェック(19:00 JST目安)をスキップして即座に選定・生成・投稿する(手動テスト用)。冪等性チェック(同日重複投稿防止・ローテーション上限)は引き続き有効"
+        type: boolean
+        required: false
+        default: false
 
   # バックアップ用途のみ(主経路ではない)。post.ymlと同じ理由で、外部cronサービスからの
   # workflow_dispatchを主経路とし、scheduleはそれが不発だった場合の保険として少し後に追試行する。
@@ -73,10 +81,12 @@ jobs:
           # 必ずenv:経由の環境変数として受け渡し、シェル側でcase文により許可リスト検証する。
           MODE_INPUT: ${{ inputs.mode }}
           ACCOUNT_INPUT: ${{ inputs.account }}
+          FORCE_INPUT: ${{ inputs.force }}
         run: |
           set -e
           MODE="${MODE_INPUT:-post}"
           ACCOUNT="${ACCOUNT_INPUT:-ai-news}"
+          FORCE="${FORCE_INPUT:-false}"
 
           case "$MODE" in
             post|dryrun) ;;
@@ -95,12 +105,26 @@ jobs:
               ;;
           esac
 
+          # workflow_dispatchのinputs.forceはtype: booleanだが、REST API経由(外部cron連携)では
+          # 任意の文字列を送信できてしまうため、他のinput同様にcase文で許可リスト検証する。
+          case "$FORCE" in
+            true|false) ;;
+            *)
+              echo "invalid force input: $FORCE" >&2
+              exit 1
+              ;;
+          esac
+
           NPM_SCRIPT="post:affiliate"
           if [ "$MODE" = "dryrun" ]; then
             NPM_SCRIPT="dryrun:affiliate"
           fi
-          echo "mode=$MODE account=$ACCOUNT npmScript=$NPM_SCRIPT"
-          npm run "$NPM_SCRIPT" -- --auto-slot --account="$ACCOUNT"
+          echo "mode=$MODE account=$ACCOUNT force=$FORCE npmScript=$NPM_SCRIPT"
+          if [ "$FORCE" = "true" ]; then
+            npm run "$NPM_SCRIPT" -- --force --account="$ACCOUNT"
+          else
+            npm run "$NPM_SCRIPT" -- --auto-slot --account="$ACCOUNT"
+          fi
 
       # 実行結果(成功/失敗/スキップ)をGitHub Actionsのジョブサマリーに残す(post.ymlと同じ方式)。
       - name: Write job summary
