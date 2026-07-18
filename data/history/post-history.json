@@ -44,5 +44,21 @@
       "2078142884906479735",
       "2078142886294798781"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/17/news062.html",
+    "title": "Google、「NotebookLM」を「Gemini Notebook」に改称　Geminiエコシステムへの統合を強化",
+    "score": 7.44,
+    "selectedAt": "2026-07-18T03:15:36.730Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "98e8ae19-34db-462c-a8b0-716f5cb98248",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/17/news062.html",
+    "postedAt": "2026-07-18T03:15:38.152Z",
+    "tweetIds": [
+      "2078317740704563435",
+      "2078317742420119985",
+      "2078317743430930457"
+    ]
   }
 ]
