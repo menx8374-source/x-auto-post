@@ -27,12 +27,15 @@ export class XApiError extends Error {
   status?: number;
   /** レート制限エラーの場合、リセット時刻(UNIX秒)。取得できない場合は未設定 */
   rateLimitResetAt?: number;
+  /** X APIが返した詳細なエラー本体(診断用。認証情報の実値は含まれない) */
+  apiErrorDetail?: unknown;
 
-  constructor(message: string, opts?: { status?: number; rateLimitResetAt?: number }) {
+  constructor(message: string, opts?: { status?: number; rateLimitResetAt?: number; apiErrorDetail?: unknown }) {
     super(message);
     this.name = "XApiError";
     this.status = opts?.status;
     this.rateLimitResetAt = opts?.rateLimitResetAt;
+    this.apiErrorDetail = opts?.apiErrorDetail;
   }
 }
 
@@ -88,6 +91,7 @@ export function createXClient(account: AccountProfile = getAccountProfile()): XP
           throw new XApiError(err.message, {
             status: err.code,
             rateLimitResetAt: err.rateLimitError ? err.rateLimit?.reset : undefined,
+            apiErrorDetail: err.data,
           });
         }
         throw err;

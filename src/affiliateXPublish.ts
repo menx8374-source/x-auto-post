@@ -15,6 +15,7 @@ import {
   createXClient,
   postWithRateLimitRetry,
   DEFAULT_RATE_LIMIT_RETRY_POLICY,
+  XApiError,
   type RateLimitRetryPolicy,
   type XPostClient,
 } from "./xPublish.js";
@@ -65,6 +66,7 @@ export function createXApiPublishForAffiliate(
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        const apiErrorDetail = err instanceof XApiError ? err.apiErrorDetail : undefined;
         log.error("failed to post affiliate tweet to X; stopping thread here", {
           failedAtIndex: tweet.index,
           total: tweets.length,
@@ -72,6 +74,7 @@ export function createXApiPublishForAffiliate(
           postedTweetIds: postedIds,
           productId: product.id,
           message,
+          apiErrorDetail,
         });
         return {
           posted: false,
