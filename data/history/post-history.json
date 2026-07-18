@@ -77,5 +77,22 @@
       "2078450207398760474",
       "2078450208355065865"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/18/news019.html",
+    "title": "「Claude Fable 5」サブスクに統合　Max・Team Premiumプラン対象",
+    "score": 4.83,
+    "selectedAt": "2026-07-18T22:31:59.409Z",
+    "slot": "morning",
+    "status": "posted",
+    "id": "b9600199-32a0-4e86-9fdf-b4827d7171ba",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/18/news019.html",
+    "postedAt": "2026-07-18T22:32:01.914Z",
+    "tweetIds": [
+      "2078608754895937957",
+      "2078608757026615639",
+      "2078608758536556958",
+      "2078608759929155876"
+    ]
   }
 ]
