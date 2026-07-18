@@ -1,14 +1,16 @@
 /**
  * アフィリエイト投稿のスレッド(ThreadTweet[])を実際にX API v2へ投稿する。
  *
- * X認証・レート制限リトライ・スレッド連結のロジックは既存のsrc/xPublish.tsの実装
+ * X認証・レート制限リトライ・スレッド連結・OGP画像アップロードのロジックは既存のsrc/xPublish.tsの実装
  * (createXClient/postWithRateLimitRetry/DEFAULT_RATE_LIMIT_RETRY_POLICY)をそのまま再利用し、
- * このファイルはアフィリエイト投稿の型(AffiliatePublishFn)への薄い適合層のみを持つ
- * (OGP画像添付はアフィリエイト投稿では行わないため、その分だけ既存のxApiPublishより単純)。
+ * このファイルはアフィリエイト投稿の型(AffiliatePublishFn)への薄い適合層のみを持つ。
+ * 画像は既存のAIニュース投稿と同じ方針で、スレッド1件目(kind:"body"の最初の1件)にのみ添付し、
+ * 末尾のリンクツイート(kind:"link")には添付しない。
  */
 import { log } from "./logger.js";
 import type { ThreadTweet } from "./threadSplit.js";
 import type { PublishResult } from "./pipeline.js";
+import type { OgpImage } from "./ogpImage.js";
 import type { AffiliateProduct } from "./affiliateProducts.js";
 import type { AffiliatePublishFn } from "./affiliatePipeline.js";
 import {
@@ -34,7 +36,7 @@ export function createXApiPublishForAffiliate(
   retryPolicy: RateLimitRetryPolicy = DEFAULT_RATE_LIMIT_RETRY_POLICY,
   sleep: SleepFn = defaultSleep
 ): AffiliatePublishFn {
-  return async (tweets: ThreadTweet[], product: AffiliateProduct): Promise<PublishResult> => {
+  return async (tweets: ThreadTweet[], product: AffiliateProduct, ogpImage?: OgpImage | null): Promise<PublishResult> => {
     if (!client) {
       const error =
         "X API認証情報(X_API_KEY/X_API_SECRET/X_ACCESS_TOKEN/X_ACCESS_SECRET)が未設定のため投稿できません";
@@ -42,11 +44,39 @@ export function createXApiPublishForAffiliate(
       return { posted: false, detail: error, tweetIds: [], error };
     }
 
+    // OGP画像は、投稿失敗が全体をブロックしないよう、事前に一度だけアップロードしてmedia_idを得ておく。
+    // アップロード自体に失敗しても(client.uploadMedia未定義・API呼び出し失敗いずれも)、画像なしで
+    // スレッド投稿を継続する(ブロッキングしない)。
+    let mediaId: string | undefined;
+    if (ogpImage) {
+      if (!client.uploadMedia) {
+        log.warn("x client does not support media upload; posting affiliate thread without image attachment", {
+          productId: product.id,
+        });
+      } else {
+        try {
+          mediaId = await client.uploadMedia(ogpImage);
+          log.info("uploaded ogp image to X for affiliate post", { productId: product.id, imageUrl: ogpImage.url });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          log.warn("failed to upload ogp image to X; posting affiliate thread without image attachment", {
+            productId: product.id,
+            imageUrl: ogpImage.url,
+            message,
+          });
+        }
+      }
+    }
+
+    // 添付先は「スレッド1件目の本文ツイート」(kind:"body")。末尾のリンクツイートには添付しない。
+    const firstBodyTweet = tweets.find((t) => t.kind === "body");
+
     const postedIds: string[] = [];
     let previousTweetId: string | undefined;
 
     for (const tweet of tweets) {
       const replyToTweetId = previousTweetId;
+      const mediaIds = mediaId && tweet === firstBodyTweet ? [mediaId] : undefined;
       try {
         const posted = await postWithRateLimitRetry(
           client,
@@ -54,7 +84,8 @@ export function createXApiPublishForAffiliate(
           replyToTweetId,
           tweet.index,
           retryPolicy,
-          sleep
+          sleep,
+          mediaIds
         );
         postedIds.push(posted.id);
         previousTweetId = posted.id;

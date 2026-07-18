@@ -12,6 +12,7 @@ import { selectAffiliateProduct, type AffiliateSelectionResult } from "./selectA
 import { generateAffiliatePostText, type AffiliatePostGenerationResult } from "./generateAffiliatePost.js";
 import { composeAffiliateThread } from "./affiliateThread.js";
 import { assertValidConfig } from "./config.js";
+import { fetchOgpImageForArticle, type OgpImage } from "./ogpImage.js";
 import { getAccountProfile, type AccountProfile } from "./accounts.js";
 import {
   loadAffiliateHistory,
@@ -25,14 +26,23 @@ import { isWithinRecoveryWindow, getConfiguredRecoveryWindowHours } from "./post
 import type { ThreadTweet } from "./threadSplit.js";
 import type { PublishResult } from "./pipeline.js";
 
-/** 投稿予定ツイート配列を実際に送信する(または送信しない)役目を持つ関数。本番/ドライランの唯一の差し替え点 */
-export type AffiliatePublishFn = (tweets: ThreadTweet[], product: AffiliateProduct) => Promise<PublishResult>;
+/**
+ * 投稿予定ツイート配列を実際に送信する(または送信しない)役目を持つ関数。本番/ドライランの唯一の差し替え点。
+ * `ogpImage`(取得できた場合のみ)はスレッド1件目の本文ツイートに添付するために渡す。取得できなかった
+ * 場合は`null`が渡り、実装側は画像なしで投稿処理を継続する(ブロッキングしない)。
+ */
+export type AffiliatePublishFn = (
+  tweets: ThreadTweet[],
+  product: AffiliateProduct,
+  ogpImage?: OgpImage | null
+) => Promise<PublishResult>;
 
 /** ドライラン用のpublish実装: 何も送信せず、送信しなかった旨だけを返す */
-export const dryRunAffiliatePublish: AffiliatePublishFn = async (tweets, product) => {
+export const dryRunAffiliatePublish: AffiliatePublishFn = async (tweets, product, ogpImage) => {
   log.info("dry run: not sending affiliate tweets to X", {
     tweetCount: tweets.length,
     productId: product.id,
+    ogpImageUrl: ogpImage?.url,
   });
   return { posted: false, detail: "ドライランのためXへは送信していません" };
 };
@@ -55,6 +65,12 @@ export interface AffiliatePipelineDependencies {
    * (productIdから機械的に組み立てられる固定URL)を使うため、実行時のネットワーク呼び出しは不要。
    */
   buildThread: (text: string, productId: string) => ThreadTweet[];
+  /**
+   * 選定商品の公式サイトURL(officialUrl)からOGP画像を取得する。取得できない場合はnullを返す(例外を投げない)。
+   * アフィリエイト側は商品リストが少数精鋭のため、選定条件には含めず(選定は既存のselectAffiliateProduct
+   * のまま)、選定後にベストエフォートで取得する。
+   */
+  fetchOgpImage: (url: string) => Promise<OgpImage | null>;
   appendHistory: (entry: Omit<AffiliatePostHistoryEntry, "id">) => Promise<AffiliatePostHistoryEntry>;
   updateHistory: (id: string, updates: AffiliateHistoryUpdate) => Promise<AffiliatePostHistoryEntry | null>;
 }
@@ -66,6 +82,7 @@ function buildDefaultDeps(account: AccountProfile): AffiliatePipelineDependencie
     select: (products, history) => selectAffiliateProduct(products, history),
     generate: (product) => generateAffiliatePostText(product, undefined, account),
     buildThread: (text, productId) => composeAffiliateThread(text, productId),
+    fetchOgpImage: (url) => fetchOgpImageForArticle(url),
     appendHistory: (entry) => appendAffiliateHistoryEntry(entry),
     updateHistory: (id, updates) => updateAffiliateHistoryEntry(id, updates),
   };
@@ -85,6 +102,8 @@ export interface AffiliatePipelineResult {
   selectionReason?: string;
   text?: string;
   tweets?: ThreadTweet[];
+  /** 取得できたOGP画像のURL(プレビュー・ログ用途。画像本体は結果に含めない)。取得できなかった場合は未設定 */
+  ogpImageUrl?: string;
   /** 投稿履歴(ローテーション・冪等性判定用)に書き込んだかどうか */
   historyWritten: boolean;
   publishResult?: PublishResult;
@@ -222,6 +241,27 @@ export async function runAffiliatePostingPipeline(
 
   const tweets = deps.buildThread(generation.text, selection.selected.id);
 
+  // 商品の公式サイトURL(officialUrl)からOGP画像を取得する(ベストエフォート、失敗しても投稿処理を
+  // ブロックしない)。deps.fetchOgpImageは自身の内部で失敗をnullとして返す設計だが、想定外の例外が
+  // 飛んできた場合の安全網としてここでもcatchしておく。
+  let ogpImage: OgpImage | null = null;
+  try {
+    ogpImage = await deps.fetchOgpImage(selection.selected.officialUrl);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.warn("unexpected error while fetching ogp image for affiliate product; continuing without image", {
+      officialUrl: selection.selected.officialUrl,
+      message,
+    });
+    ogpImage = null;
+  }
+  log.info(
+    ogpImage
+      ? "ogp image available for this affiliate post"
+      : "no ogp image available for this affiliate post; continuing without image",
+    { officialUrl: selection.selected.officialUrl, imageUrl: ogpImage?.url }
+  );
+
   let historyWritten = false;
   let historyEntryId: string | undefined;
   if (options.writeHistory) {
@@ -237,7 +277,7 @@ export async function runAffiliatePostingPipeline(
     log.info("not recording selection into affiliate post history (writeHistory=false)");
   }
 
-  const publishResult = await options.publish(tweets, selection.selected);
+  const publishResult = await options.publish(tweets, selection.selected, ogpImage);
 
   if (publishResult.posted) {
     log.info("affiliate pipeline finished: posted successfully", {
@@ -281,6 +321,7 @@ export async function runAffiliatePostingPipeline(
     selectionReason: selection.reason,
     text: generation.text,
     tweets,
+    ogpImageUrl: ogpImage?.url,
     historyWritten,
     publishResult,
     accountId: account.id,

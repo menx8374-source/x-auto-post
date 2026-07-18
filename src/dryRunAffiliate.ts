@@ -151,6 +151,12 @@ async function main() {
   printPreview(result.tweets ?? []);
   console.log("");
   console.log(
+    result.ogpImageUrl
+      ? `OGP画像: ${result.ogpImageUrl}(1件目の本文ツイートに添付予定。実際のダウンロード確認のみ、X投稿は行っていません)`
+      : "OGP画像: 取得できませんでした(画像なしで投稿予定)"
+  );
+  console.log("");
+  console.log(
     result.historyWritten
       ? "アフィリエイト投稿履歴に記録しました(--write-history 指定)"
       : "アフィリエイト投稿履歴には記録していません(ドライランの既定動作。ローテーション判定用データは汚れません)"
@@ -168,6 +174,7 @@ async function main() {
         selectionReason: result.selectionReason,
         text: result.text,
         tweets: result.tweets,
+        ogpImageUrl: result.ogpImageUrl,
         historyWritten: result.historyWritten,
         publishResult: result.publishResult,
       },

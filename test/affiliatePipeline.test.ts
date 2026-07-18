@@ -9,6 +9,7 @@ import {
 import type { AffiliateProduct } from "../src/affiliateProducts.js";
 import type { AffiliatePostHistoryEntry } from "../src/affiliateHistory.js";
 import type { ThreadTweet } from "../src/threadSplit.js";
+import type { OgpImage } from "../src/ogpImage.js";
 
 function product(overrides: Partial<AffiliateProduct> & { id: string }): AffiliateProduct {
   return {
@@ -42,6 +43,9 @@ function buildMockDeps(overrides: Partial<AffiliatePipelineDependencies> = {}): 
         kind: "link",
       },
     ],
+    // 既定ではOGP画像取得を行わない(実ネットワークアクセスなしでテストを決定論的にするため)。
+    // 画像添付の挙動を検証するテストでは個別にoverrideする。
+    fetchOgpImage: async () => null,
     appendHistory: async (entry) => {
       appendHistoryCalls.push(entry);
       return { ...entry, id: "history-id-1" };
@@ -217,4 +221,60 @@ test("本番投稿成功時、履歴エントリが投稿結果(posted)で更新
   assert.equal(result.publishResult?.posted, true);
   assert.equal(updateCalls.length, 1);
   assert.equal((updateCalls[0].updates as { status: string }).status, "posted");
+});
+
+test("OGP画像: 商品のofficialUrlから取得できた場合、結果のogpImageUrlに反映され、publish関数に渡される", async () => {
+  const sampleOgpImage: OgpImage = {
+    url: "https://example.com/p1-ogp.png",
+    buffer: Buffer.from("fake-image-bytes"),
+    contentType: "image/png",
+  };
+  let receivedOfficialUrl: string | undefined;
+  const { deps } = buildMockDeps({
+    fetchOgpImage: async (url) => {
+      receivedOfficialUrl = url;
+      return sampleOgpImage;
+    },
+  });
+
+  let receivedOgpImage: OgpImage | null | undefined;
+  const publish: AffiliatePublishFn = async (tweets, product, ogpImage) => {
+    receivedOgpImage = ogpImage;
+    return { posted: false, detail: "テスト" };
+  };
+
+  const result = await runAffiliatePostingPipeline({ writeHistory: false, publish, deps });
+
+  assert.equal(receivedOfficialUrl, "https://example.com/p1");
+  assert.equal(result.ogpImageUrl, sampleOgpImage.url);
+  assert.equal(receivedOgpImage?.url, sampleOgpImage.url);
+});
+
+test("OGP画像: 取得できなかった場合(null)でも投稿処理はブロックされず、画像なしで継続する", async () => {
+  const { deps } = buildMockDeps({ fetchOgpImage: async () => null });
+
+  let receivedOgpImage: OgpImage | null | undefined = undefined;
+  const publish: AffiliatePublishFn = async (tweets, product, ogpImage) => {
+    receivedOgpImage = ogpImage;
+    return { posted: false, detail: "テスト" };
+  };
+
+  const result = await runAffiliatePostingPipeline({ writeHistory: false, publish, deps });
+
+  assert.equal(result.success, true);
+  assert.equal(result.ogpImageUrl, undefined);
+  assert.equal(receivedOgpImage, null);
+});
+
+test("OGP画像: fetchOgpImageが想定外の例外を投げても、画像なしで投稿処理が継続する", async () => {
+  const { deps } = buildMockDeps({
+    fetchOgpImage: async () => {
+      throw new Error("unexpected failure inside fetchOgpImage");
+    },
+  });
+
+  const result = await runAffiliatePostingPipeline({ writeHistory: false, publish: dryRunAffiliatePublish, deps });
+
+  assert.equal(result.success, true);
+  assert.equal(result.ogpImageUrl, undefined);
 });
