@@ -22,6 +22,7 @@ import {
   type AffiliateHistoryUpdate,
 } from "./affiliateHistory.js";
 import { isWithinRecoveryWindow, getConfiguredRecoveryWindowHours } from "./postHistory.js";
+import { shortenUrl } from "./urlShortener.js";
 import type { ThreadTweet } from "./threadSplit.js";
 import type { PublishResult } from "./pipeline.js";
 
@@ -49,6 +50,12 @@ export interface AffiliatePipelineDependencies {
     history: AffiliatePostHistoryEntry[]
   ) => AffiliateSelectionResult | Promise<AffiliateSelectionResult>;
   generate: (product: AffiliateProduct) => Promise<AffiliatePostGenerationResult>;
+  /**
+   * 投稿直前のアフィリエイトリンク短縮(TinyURL経由)。X APIが`px.a8.net`等のアフィリエイト
+   * トラッキングドメインを「invalid URL」として一律拒否する不具合の回避策(src/urlShortener.ts参照)。
+   * 失敗時は`null`を返す(この場合パイプラインは投稿を中止する)。
+   */
+  shortenAffiliateUrl: (affiliateUrl: string) => Promise<string | null>;
   buildThread: (text: string, affiliateUrl: string) => ThreadTweet[];
   appendHistory: (entry: Omit<AffiliatePostHistoryEntry, "id">) => Promise<AffiliatePostHistoryEntry>;
   updateHistory: (id: string, updates: AffiliateHistoryUpdate) => Promise<AffiliatePostHistoryEntry | null>;
@@ -60,13 +67,14 @@ function buildDefaultDeps(account: AccountProfile): AffiliatePipelineDependencie
     loadHistory: () => loadAffiliateHistory(),
     select: (products, history) => selectAffiliateProduct(products, history),
     generate: (product) => generateAffiliatePostText(product, undefined, account),
+    shortenAffiliateUrl: (affiliateUrl) => shortenUrl(affiliateUrl),
     buildThread: (text, affiliateUrl) => composeAffiliateThread(text, affiliateUrl),
     appendHistory: (entry) => appendAffiliateHistoryEntry(entry),
     updateHistory: (id, updates) => updateAffiliateHistoryEntry(id, updates),
   };
 }
 
-export type AffiliatePipelineStage = "select" | "generate" | "thread" | "publish" | "skipped" | "done";
+export type AffiliatePipelineStage = "select" | "generate" | "shorten" | "thread" | "publish" | "skipped" | "done";
 
 export interface AffiliatePipelineResult {
   success: boolean;
@@ -75,7 +83,7 @@ export interface AffiliatePipelineResult {
   /** success:falseの場合の理由(ログ・出力用) */
   error?: string;
   /** stage:"skipped"の場合の理由の種別 */
-  skipReason?: "already-posted" | "outside-recovery-window" | "no-eligible-product";
+  skipReason?: "already-posted" | "outside-recovery-window" | "no-eligible-product" | "url-shorten-failed";
   product?: AffiliateProduct;
   selectionReason?: string;
   text?: string;
@@ -215,7 +223,29 @@ export async function runAffiliatePostingPipeline(
     };
   }
 
-  const tweets = deps.buildThread(generation.text, selection.selected.affiliateUrl);
+  const shortenedAffiliateUrl = await deps.shortenAffiliateUrl(selection.selected.affiliateUrl);
+  if (!shortenedAffiliateUrl) {
+    // 短縮できない生のアフィリエイトリンク(px.a8.net等)をそのまま投稿すると、Xに
+    // 「invalid URL」として拒否される可能性が高い。壊れる可能性が高い投稿を送るより、
+    // この回はスキップする方が安全(既存の「有効な候補が0件ならスキップ」と同じ設計思想)。
+    const reason = `アフィリエイトリンクの短縮(TinyURL)に失敗したため、この回の投稿を中止します: ${selection.selected.affiliateUrl}`;
+    log.warn("affiliate pipeline stopped: url shortening failed; skipping this run for safety", {
+      productId: selection.selected.id,
+      affiliateUrl: selection.selected.affiliateUrl,
+    });
+    return {
+      success: false,
+      stage: "shorten",
+      skipReason: "url-shorten-failed",
+      error: reason,
+      product: selection.selected,
+      selectionReason: selection.reason,
+      historyWritten: false,
+      accountId: account.id,
+    };
+  }
+
+  const tweets = deps.buildThread(generation.text, shortenedAffiliateUrl);
 
   let historyWritten = false;
   let historyEntryId: string | undefined;

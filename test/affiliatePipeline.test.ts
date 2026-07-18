@@ -33,6 +33,7 @@ function buildMockDeps(overrides: Partial<AffiliatePipelineDependencies> = {}): 
     loadHistory: async () => [],
     select: () => ({ selected: p, reason: "テスト用選定", consideredCount: 1, enabledCount: 1 }),
     generate: async () => ({ success: true, text: "【PR】生成されたテスト用の紹介文です。", product: p }),
+    shortenAffiliateUrl: async (url) => `https://tinyurl.com/mock-${url.length}`,
     buildThread: (text, url) => [
       { index: 1, text, charLength: text.length, kind: "body" },
       { index: 2, text: `商品ページ: ${url}`, charLength: `商品ページ: ${url}`.length, kind: "link" },
@@ -212,4 +213,24 @@ test("本番投稿成功時、履歴エントリが投稿結果(posted)で更新
   assert.equal(result.publishResult?.posted, true);
   assert.equal(updateCalls.length, 1);
   assert.equal((updateCalls[0].updates as { status: string }).status, "posted");
+});
+
+test("アフィリエイトリンクの短縮に失敗した場合、投稿全体が安全にスキップされる(履歴も書き込まれない・publishも呼ばれない)", async () => {
+  let publishCalled = false;
+  const { deps, appendHistoryCalls } = buildMockDeps({
+    shortenAffiliateUrl: async () => null,
+  });
+  const fakePublish: AffiliatePublishFn = async (tweets: ThreadTweet[]) => {
+    publishCalled = true;
+    return { posted: true, detail: "投稿しました", tweetIds: tweets.map((t) => `tweet-${t.index}`) };
+  };
+
+  const result = await runAffiliatePostingPipeline({ writeHistory: true, publish: fakePublish, deps });
+
+  assert.equal(result.success, false);
+  assert.equal(result.stage, "shorten");
+  assert.equal(result.skipReason, "url-shorten-failed");
+  assert.equal(result.historyWritten, false);
+  assert.equal(appendHistoryCalls.length, 0);
+  assert.equal(publishCalled, false);
 });
