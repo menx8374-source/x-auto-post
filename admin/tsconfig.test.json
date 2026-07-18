@@ -9,10 +9,12 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "allowJs": true,
+    "checkJs": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["test"]
+  "include": ["test", "public"]
 }

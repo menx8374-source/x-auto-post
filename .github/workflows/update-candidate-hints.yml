@@ -36,6 +36,8 @@ jobs:
 
       - name: Generate candidate hints
         run: npm run generate:candidate-hints
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       # data/affiliate-candidate-hints.json はこのワークフロー実行のたびに更新される
       # 参考情報ファイル。GitHub Actionsのチェックアウトは実行ごとに使い捨てのため、

@@ -114,5 +114,76 @@ npm run generate:candidate-hints  # data/affiliate-candidate-hints.jsonを生成
 - `admin/test/github.test.ts`(10件、うち2件を再レビューで追加): getFileContent/putFileContent/dispatchWorkflowのURL・ヘッダ・エラー処理に加え、`GitHubApiError`が409と401それぞれで正しい`status`を保持することを検証
 - `test/generateCandidateHints.test.ts`(6件、うち2件を再レビューで追加): 出力形式・TOP_N絞り込み・0件時の安全な空配列出力・本番パイプライン非import確認に加え、javascript:等の不正スキームURLの候補を除外することを検証
 
+---
+
+## 追加機能: アフィリエイト商品候補の自動検出・追加フォーム事前入力(2026-07-18)
+
+ユーザー要望「おすすめのアフィリエイトプログラムを自動で追加して」への対応。ASPへの自動提携・自動リンク取得は利用規約違反・認証情報保存リスクのため見送り、代わりに「候補を自動提案し、手入力を最小化する」方向で実装した。
+
+### 実装内容
+- `src/generateCandidateHints.ts`: 収集済み上位15件のニュースタイトルを1回のAPI呼び出しでClaudeに渡し、「特定の名前を持つ商業的なAI製品・ツール・サービス」を主題にした項目のみ`productCandidate: { name, officialUrlGuess }`を付加。商品の特長・効果等の事実情報はプロンプトで明示的に生成禁止(`facts`は空のまま、ユーザーが公式サイトを見て手入力する運用は不変)。
+  - トークン節約のため15件を1回のバッチ呼び出しでJSON配列として受け取る。
+  - `ANTHROPIC_API_KEY`未設定時はinfoログを出して分類をスキップし、従来通りタイトル一覧のみ書き出す(エラーにしない)。
+  - レスポンスのJSONパース失敗・API呼び出し失敗はいずれも例外を投げず空のMapにフォールバックし、スクリプト全体は失敗させない。
+  - 既存のシグネチャ(`outFile`, `collectFn`)は維持し、テスト用に3番目の任意引数`client`を追加(既存呼び出し元`.github/workflows/update-candidate-hints.yml`・`npm run generate:candidate-hints`は無変更で動作)。
+- `.github/workflows/update-candidate-hints.yml`: `env: ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}`を追加(既存secret、新規登録不要)。
+- `admin/public/candidateSlug.js`(新規): 製品名からSAFE_PRODUCT_ID準拠のスラッグを生成する純粋関数`slugifyProductName`。日本語のみの名前は空文字列を返す(ユーザー入力に委ねる)。
+- `admin/public/app.js`: `<script type="module">`化し`candidateSlug.js`をimport。候補ヒント一覧の`productCandidate`ありの項目に「商品候補: <name>」バッジと「商品として追加」ボタンを表示。押すと`openForm(null, prefill)`で商品追加フォームを開き、id(スラッグ)/name/officialUrlを事前入力、facts/affiliateUrl/imageUrl/categoryは空、enabledは常にfalse(下書き)。
+- `admin/public/index.html`: `<script src="app.js" type="module">`に変更(ESモジュールとしてcandidateSlug.jsをimportするため)。
+- `admin/tsconfig.test.json`: `allowJs`/`checkJs:false`を追加し`public`をincludeに追加、テストから`.js`ファイルの型(JSDoc由来)を解決できるようにした。
+
+### 技術選定
+- 追加ライブラリなし。既存の`@anthropic-ai/sdk`・既存パターン(`src/generateAffiliatePost.ts`)を再利用。
+
+### 受け入れ基準チェック(自己申告)
+- [x] ニュースタイトルから商業的AI製品を判定・製品名抽出・(明確な場合のみ)公式URL推測を1回のバッチAPI呼び出しで行う: `buildProductCandidatePrompt`/`detectProductCandidates`で実装、テストで確認。
+- [x] 商品の特長・事実情報をAIに生成させない: プロンプトで明示的に禁止、`facts`はコード上一切生成しない(常にユーザー入力)。
+- [x] ANTHROPIC_API_KEY未設定時は安全にスキップし従来動作を維持: `detectProductCandidates`がnullクライアント時に空Mapを返すことをテストで確認。
+- [x] JSONパース失敗時も例外を投げずフォールバック: テストで確認。
+- [x] 既存の`generateCandidateHints`シグネチャ・出力先・呼び出し元ワークフローは変更なし(後方互換の任意引数追加のみ)。
+- [x] admin側「商品として追加」ボタンでフォーム事前入力(id/name/officialUrl)、facts/affiliateUrl/imageUrl/category空、enabled=false: `app.js`のコードレベルで実装。ブラウザでの実機タップ確認は`wrangler pages dev`でのファイル配信確認(app.js/candidateSlug.jsが200で正しくESモジュールとして配信されること)のみ行い、実際のクリック操作によるフォーム開閉の目視確認は**未実施**(既存selfevalの懸念点と同様の制約)。
+- [x] A8.net等ASPへの自動ログイン・スクレイピング・自動リンク取得は実装していない(コードに該当処理なし)。
+- [x] 既存の本番投稿パイプライン(pipeline.ts/publish.ts/dryRun.ts/post.yml/post-affiliate.yml)は無変更。
+- [x] `npm test`(ルート293件)・`npm run typecheck`(ルート・admin両方)通過を確認。
+
+## アプリの起動方法(admin管理ページ、ローカル確認用)
+```bash
+cd admin
+npm install
+npm run dev   # wrangler pages dev public --compatibility-date=2026-07-01 (既定ポート8788、ポート競合時は --port で変更可)
+```
+ルートプロジェクトの候補ヒント生成: `npm run generate:candidate-hints`(要`ANTHROPIC_API_KEY`、未設定でも安全にスキップされる)。
+
+## 既知の問題・懸念点
+- ブラウザでの実機操作(「商品として追加」ボタンのクリック→フォーム事前入力の目視確認)は未実施。`wrangler pages dev`でのapp.js/candidateSlug.jsの配信確認(200、ESモジュールとして正しい内容)とコードレビューのみ。
+- Claude分類の実API呼び出し(実際のAI関連ニュースに対する分類精度)は未検証(モッククライアントによるユニットテストのみ)。ANTHROPIC_API_KEYが利用可能な環境で`npm run generate:candidate-hints`を実行し、`data/affiliate-candidate-hints.json`の内容を目視確認することを推奨。
+
+## 追加したテスト
+- `test/generateCandidateHints.test.ts`: `buildProductCandidatePrompt`(事実情報を生成させない指示の検証)、`parseProductCandidateResponse`(正常系/コードブロック混入/不正スキームURL/不正JSON/範囲外index等)、`detectProductCandidates`(クライアントnull/API例外/0件時)、`generateCandidateHints`(商品候補あり/API未設定/JSON不正の3パターンで既存動作へのフォールバックを確認)を追加(13件)。
+- `admin/test/candidateSlug.test.ts`(新規、6件): `slugifyProductName`の英数字変換・記号のハイフン化・先頭末尾ハイフン除去・日本語名での空文字列フォールバック・非文字列入力での安全なフォールバック・SAFE_PRODUCT_ID充足を検証。
+
+---
+
+## /code-review指摘への対応(2026-07-18、再実装)
+
+オーケストレーターの`/security-review`(指摘なし)・`/code-review`(effort: low)でCONFIRMED 2件が見つかりFAIL。以下を修正。
+
+### 対応内容
+1. **[test/generateCandidateHints.test.ts] テストからの意図しない実API呼び出しリスク**: 既存5件の`generateCandidateHints(outFile, collectFn)`呼び出しが`client`引数省略のままだった。省略時は`detectProductCandidates`内で`client===undefined`→`createAnthropicClient(account)`が呼ばれ、実行環境に`ANTHROPIC_API_KEY`が設定されていると`npm test`実行時に実際のAnthropic APIを呼んでしまう。5件すべてに`client: null`を明示的に追加(既存の新規テストと同じ流儀に統一)。
+2. **[admin/public/app.js] 候補ヒントからの商品追加で既存商品をサイレント上書きするリスク**: `admin/functions/api/products.ts`のPOSTハンドラはidが既存商品と一致すると無条件に「更新」として完全上書きする(作成専用モード・衝突拒否なし)。候補ヒントから自動生成したidが既存の有効な商品(facts/affiliateUrl設定済み)のidとたまたま一致すると、空のドラフト値で警告なく上書き・データ消失する。
+   - `admin/public/productConflict.js`(新規)に純粋関数`findConflictingProduct(products, id)`を追加。
+   - `admin/public/app.js`の`openForm()`で`form.dataset.editing`に編集/新規追加を記録し、`submitForm()`で新規追加(`dataset.editing !== "true"`)の場合のみ、送信前に`findConflictingProduct(state.products, payload.id)`でID衝突をチェック。衝突時はエラーメッセージ(「このID「<id>」は既存の商品「<name>」と重複しています。このまま保存すると既存商品が上書きされます。新規追加のため、IDを変更してください。」)を表示し送信をブロック(APIは呼ばない)。候補ヒント経由・手動「+商品を追加」経由の両方の新規追加フローに適用(同一の根本原因のため)。既存商品編集フロー(id一致で意図的に更新)は対象外。
+
+非ブロッカー指摘(MAX_CLASSIFICATION_OUTPUT_TOKENSの部分救済、slugifyProductNameの長さ上限、IIFEラッパーの冗長性)は今回は未対応(任意対応のため見送り)。
+
+### 修正後の検証
+- ルート: `npm run typecheck` OK、`npm test` 293件全パス。
+- admin: `npm run typecheck` OK、`npm test` 53件全パス(新規`admin/test/productConflict.test.ts` 4件を追加)。
+- `node --check`でapp.js/candidateSlug.js/productConflict.jsの構文確認OK。
+- `wrangler pages dev`を一時起動し、app.js/candidateSlug.js/productConflict.jsがいずれも200で配信されることを確認後、プロセスを停止(ポート解放済み)。
+
+### 追加したテスト(この修正分)
+- `admin/test/productConflict.test.ts`(新規、4件): 一致あり/一致なし/空配列/products非配列(null/undefined)での安全なフォールバックを検証。
+
 ## 関連ドキュメント
 - [[x-ai-news-autopost-spec]]（製品仕様書）

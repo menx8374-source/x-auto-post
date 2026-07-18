@@ -1,6 +1,9 @@
 // アフィリエイト商品管理ページのフロントエンドロジック。
 // フレームワーク不要の素のJS。ビルドステップなしでそのまま配信できることが要件のため、
-// モジュールバンドラは使わずグローバルスコープの即時実行関数のみで完結させる。
+// モジュールバンドラは使わずブラウザネイティブのESモジュール(<script type="module">)のみで完結させる。
+import { slugifyProductName } from "./candidateSlug.js";
+import { findConflictingProduct } from "./productConflict.js";
+
 (() => {
   "use strict";
 
@@ -175,7 +178,15 @@
     await reloadProducts();
   }
 
-  function openForm(product) {
+  /**
+   * 商品追加/編集フォームを開く。
+   * - `product`が指定された場合: 既存商品の編集(IDは変更不可)。
+   * - `product`がnullで`prefill`が指定された場合: 候補ヒントからの新規追加(下書き)。
+   *   IDは変更可能(候補から自動生成したスラッグの手直しを許すため)、enabledは常にオフのまま、
+   *   factsは空(公式サイトを確認してユーザー自身が入力する運用のため、ヒントプレースホルダのみ表示)。
+   * - どちらも未指定: 通常の空フォーム。
+   */
+  function openForm(product, prefill) {
     const tpl = document.getElementById("tpl-product-form");
     const existing = document.getElementById("product-form");
     if (existing) existing.remove();
@@ -183,6 +194,12 @@
     const fragment = tpl.content.cloneNode(true);
     const form = fragment.querySelector("#product-form");
     const title = fragment.querySelector(".form-title");
+
+    // 新規追加(product===null)か既存編集かをsubmitForm側で判定できるようにする(重複ID検知のため。
+    // /api/products のPOSTはidが一致すると既存商品を無条件に上書きする「更新」として扱われるため、
+    // 新規追加のつもりで既存の有効な商品のidと衝突すると、警告なくfacts等が空のドラフトで
+    // 上書き・データ消失してしまう。新規追加時のみクライアント側で衝突を検知しブロックする)。
+    form.dataset.editing = product ? "true" : "false";
 
     if (product) {
       title.textContent = `商品を編集: ${product.name}`;
@@ -195,6 +212,14 @@
       form.elements.facts.value = (product.facts || []).join("\n");
       form.elements.category.value = product.category || "";
       form.elements.enabled.checked = Boolean(product.enabled);
+    } else if (prefill) {
+      title.textContent = "商品を追加(候補ヒントから)";
+      form.elements.id.value = prefill.id || "";
+      form.elements.name.value = prefill.name || "";
+      form.elements.officialUrl.value = prefill.officialUrl || "";
+      form.elements.facts.value = "";
+      form.elements.facts.placeholder = "公式サイトを確認し、事実ベースの特長を1行ずつ入力してください";
+      form.elements.enabled.checked = false; // 下書き状態: ユーザーが内容を確認して保存するまで投稿対象にしない
     } else {
       title.textContent = "商品を追加";
     }
@@ -207,6 +232,17 @@
     appEl.prepend(fragment);
     state.formOpen = true;
     form.elements.id.focus();
+  }
+
+  /** 候補ヒントの商品候補(productCandidate)から、商品追加フォームを事前入力した状態で開く */
+  function addProductFromCandidate(item) {
+    const pc = item.productCandidate;
+    if (!pc) return;
+    openForm(null, {
+      id: slugifyProductName(pc.name),
+      name: pc.name,
+      officialUrl: pc.officialUrlGuess || "",
+    });
   }
 
   /** フォームを閉じ、開いている間に保留していた再描画があれば実行する */
@@ -242,6 +278,20 @@
     if (imageUrl) payload.imageUrl = imageUrl;
     const category = form.elements.category.value.trim();
     if (category) payload.category = category;
+
+    // 新規追加(編集ではない)の場合のみ、既存商品との重複IDをブロックする(既存商品編集フローは
+    // 意図的にid一致で更新するため対象外)。候補ヒントから自動生成されたidが偶然既存の有効な
+    // 商品のidと一致した場合の無警告上書き・データ消失を防ぐ。
+    if (form.dataset.editing !== "true") {
+      const conflict = findConflictingProduct(state.products, payload.id);
+      if (conflict) {
+        errorEl.textContent =
+          `このID「${payload.id}」は既存の商品「${conflict.name}」と重複しています。` +
+          "このまま保存すると既存商品が上書きされます。新規追加のため、IDを変更してください。";
+        errorEl.hidden = false;
+        return;
+      }
+    }
 
     const submitButton = form.querySelector('button[type="submit"]');
     submitButton.disabled = true;
@@ -302,12 +352,28 @@
       const titleNode = isHttpUrl(item.url)
         ? el("a", { href: item.url, target: "_blank", rel: "noopener noreferrer", text: item.title })
         : el("span", { text: `${item.title}(リンク無効)` });
-      list.appendChild(
-        el("li", { class: "candidate-item" }, [
-          titleNode,
-          el("div", { class: "candidate-meta", text: `${item.source} / score: ${item.score}` }),
-        ])
-      );
+
+      const children = [
+        titleNode,
+        el("div", { class: "candidate-meta", text: `${item.source} / score: ${item.score}` }),
+      ];
+
+      // 特定の名前を持つ商業的なAI製品・ツール・サービスが主題と判定された項目のみ、
+      // バッジと「商品として追加」ボタンを表示する(src/generateCandidateHints.tsのproductCandidate)。
+      if (item.productCandidate && item.productCandidate.name) {
+        children.push(
+          el("div", { class: "candidate-product" }, [
+            el("span", { class: "badge badge-product", text: `商品候補: ${item.productCandidate.name}` }),
+            el(
+              "button",
+              { class: "btn btn-secondary", type: "button", onclick: () => addProductFromCandidate(item) },
+              ["商品として追加"]
+            ),
+          ])
+        );
+      }
+
+      list.appendChild(el("li", { class: "candidate-item" }, children));
     });
     section.appendChild(list);
     return section;
