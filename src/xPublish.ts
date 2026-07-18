@@ -55,6 +55,11 @@ export interface XPostClient {
    * テスト用モックでは省略可能(未定義の場合、呼び出し側は画像添付をスキップする)。
    */
   uploadMedia?: (image: OgpImage) => Promise<string>;
+  /**
+   * 指定したツイートIDを削除する(障害対応用の管理ツール src/adminTweetTool.ts 専用。
+   * 通常の投稿パイプラインからは呼ばれない)。テスト用モックでは省略可能。
+   */
+  deleteTweet?: (tweetId: string) => Promise<{ deleted: boolean }>;
 }
 
 /**
@@ -99,6 +104,20 @@ export function createXClient(account: AccountProfile = getAccountProfile()): XP
     },
     uploadMedia: async (image) => {
       return client.v1.uploadMedia(image.buffer, { mimeType: image.contentType });
+    },
+    deleteTweet: async (tweetId) => {
+      try {
+        const res = await v2.deleteTweet(tweetId);
+        return { deleted: res.data.deleted };
+      } catch (err) {
+        if (err instanceof ApiResponseError) {
+          throw new XApiError(err.message, {
+            status: err.code,
+            apiErrorDetail: err.data,
+          });
+        }
+        throw err;
+      }
     },
   };
 }

@@ -1,0 +1,88 @@
+name: X 管理ツール(障害対応・手動実行専用)
+
+# 障害対応用の管理ツール(src/adminTweetTool.ts)を手動実行するためのワークフロー。
+# アフィリエイト投稿の不具合で不完全なスレッドが投稿された場合に、
+# (1) 指定した1件のツイートを削除する、(2) 単発のテスト投稿をする、のいずれかを行う。
+#
+# workflow_dispatchのみ(schedule無し)。cronでの自動実行は絶対にしない
+# (削除は破壊的操作のため、必ず利用者が明示的にRun workflowした場合のみ実行される)。
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "delete-tweet=指定したツイートを削除する / test-post=単発のテスト投稿をする"
+        type: choice
+        required: true
+        options:
+          - delete-tweet
+          - test-post
+      tweetId:
+        description: "delete-tweet用: 削除するツイートID(1件のみ指定可能。一括削除は不可)"
+        type: string
+        required: false
+      text:
+        description: "test-post用: 投稿するテキスト"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  run-admin-tool:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # workflow_dispatchのinputsはtype: choice/stringで指定しているが、この制限はGitHub Web UIの
+      # 「Run workflow」フォームでのみ強制され、REST API経由では任意の文字列を送信できてしまう。
+      # ${{ }} をrun:に直接埋め込むとテンプレート展開がシェル実行前に行われスクリプトインジェクションの
+      # 原因になるため、既存のpost.yml/post-affiliate.ymlと同じく必ずenv:経由の環境変数として受け渡し、
+      # actionはcase文で許可リスト検証してから、対応する1つのnpmスクリプトのみを実行する
+      # (意図しないコマンドが実行されないよう、actionごとに実行するnpmスクリプトを明確に分岐する)。
+      - name: Run admin tweet tool
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          ACTION_INPUT: ${{ inputs.action }}
+          TWEET_ID_INPUT: ${{ inputs.tweetId }}
+          TEXT_INPUT: ${{ inputs.text }}
+        run: |
+          set -e
+          ACTION="${ACTION_INPUT:-}"
+
+          case "$ACTION" in
+            delete-tweet)
+              if [ -z "$TWEET_ID_INPUT" ]; then
+                echo "action=delete-tweet にはtweetId inputが必須です" >&2
+                exit 1
+              fi
+              echo "running: npm run admin:delete-tweet -- --id=<tweetId>"
+              npm run admin:delete-tweet -- --id="$TWEET_ID_INPUT"
+              ;;
+            test-post)
+              if [ -z "$TEXT_INPUT" ]; then
+                echo "action=test-post にはtext inputが必須です" >&2
+                exit 1
+              fi
+              echo "running: npm run admin:test-post -- --text=<text>"
+              npm run admin:test-post -- --text="$TEXT_INPUT"
+              ;;
+            *)
+              echo "invalid action input: $ACTION" >&2
+              exit 1
+              ;;
+          esac

@@ -13,6 +13,8 @@
     "post": "tsx src/publish.ts",
     "dryrun:affiliate": "tsx src/dryRunAffiliate.ts",
     "post:affiliate": "tsx src/publishAffiliate.ts",
+    "admin:delete-tweet": "tsx src/adminTweetTool.ts delete-tweet",
+    "admin:test-post": "tsx src/adminTweetTool.ts test-post",
     "test": "node --import tsx --test test/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
