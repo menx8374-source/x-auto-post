@@ -3,7 +3,6 @@
     "id": "zenchord1",
     "name": "ZENCHORD1(AI議事録イヤホン)",
     "officialUrl": "https://www.acaliesmart.jp/view/item/000000000006",
-    "imageUrl": "https://makeshop-multi-images.akamaized.net/acaliesmart/shopimages/06/00/10_000000000006.jpg?1766028953",
     "affiliateUrl": "https://px.a8.net/svt/ejp?a8mat=4B83D1+D5X2B6+5QLS+HV7V6",
     "facts": [
       "価格: 26,980円(税込)",
@@ -15,7 +14,8 @@
       "クラウドファンディングMakuakeで1.25億円・5,388人の支援を集めた実績",
       "購入から1年間のメーカー保証付き"
     ],
-    "category": "AIガジェット",
-    "enabled": true
+    "enabled": true,
+    "imageUrl": "https://makeshop-multi-images.akamaized.net/acaliesmart/shopimages/06/00/10_000000000006.jpg?1766028953",
+    "category": "AIガジェット"
   }
 ]
