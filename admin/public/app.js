@@ -4,6 +4,7 @@
 import { slugifyProductName } from "./candidateSlug.js";
 import { findConflictingProduct } from "./productConflict.js";
 import { A8_TOP_URL, copyTextSafely, buildA8GuideMessage } from "./a8Search.js";
+import { resolveEnabledOnSubmit } from "./productEnabled.js";
 
 (() => {
   "use strict";
@@ -311,15 +312,25 @@ import { A8_TOP_URL, copyTextSafely, buildA8GuideMessage } from "./a8Search.js";
     form.elements.id.focus();
   }
 
-  /** 候補ヒントの商品候補(productCandidate)から、商品追加フォームを事前入力した状態で開く */
+  /**
+   * 候補ヒントの商品候補(productCandidate)から、商品追加フォームを事前入力した状態で開く。
+   * officialUrlGuessが有効なURLの場合、フォームを開いた直後に自動で事実情報の提案を取得する
+   * (手動ボタン「公式サイトから事実情報を提案」と同じ処理。ワンボタンでの追加に近づけるため)。
+   * officialUrlGuessが無い場合は自動実行せず、手動ボタンでの取得に委ねる。
+   */
   function addProductFromCandidate(item) {
     const pc = item.productCandidate;
     if (!pc) return;
+    const officialUrl = pc.officialUrlGuess || "";
     openForm(null, {
       id: slugifyProductName(pc.name),
       name: pc.name,
-      officialUrl: pc.officialUrlGuess || "",
+      officialUrl,
     });
+    if (officialUrl && isHttpUrl(officialUrl)) {
+      const form = document.getElementById("product-form");
+      if (form) suggestFactsFromOfficialUrl(form);
+    }
   }
 
   /** フォームを閉じ、開いている間に保留していた再描画があれば実行する */
@@ -343,13 +354,23 @@ import { A8_TOP_URL, copyTextSafely, buildA8GuideMessage } from "./a8Search.js";
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
+    const isEditing = form.dataset.editing === "true";
+    const affiliateUrl = form.elements.affiliateUrl.value.trim();
+
     const payload = {
       id: form.elements.id.value.trim(),
       name: form.elements.name.value.trim(),
       officialUrl: form.elements.officialUrl.value.trim(),
-      affiliateUrl: form.elements.affiliateUrl.value.trim(),
+      affiliateUrl,
       facts,
-      enabled: form.elements.enabled.checked,
+      // 新規追加時のみ、有効なアフィリエイトリンクがあればチェックボックスの値に関わらず自動的に
+      // 投稿対象(enabled)にする(ワンボタンでの追加に近づけるため)。編集時は自動有効化しない
+      // (ユーザーが意図的に無効化した商品を編集保存のたびに勝手に有効化する事故を防ぐ)。
+      enabled: resolveEnabledOnSubmit({
+        isEditing,
+        checkboxEnabled: form.elements.enabled.checked,
+        affiliateUrlValid: isHttpUrl(affiliateUrl),
+      }),
     };
     const imageUrl = form.elements.imageUrl.value.trim();
     if (imageUrl) payload.imageUrl = imageUrl;
@@ -359,7 +380,7 @@ import { A8_TOP_URL, copyTextSafely, buildA8GuideMessage } from "./a8Search.js";
     // 新規追加(編集ではない)の場合のみ、既存商品との重複IDをブロックする(既存商品編集フローは
     // 意図的にid一致で更新するため対象外)。候補ヒントから自動生成されたidが偶然既存の有効な
     // 商品のidと一致した場合の無警告上書き・データ消失を防ぐ。
-    if (form.dataset.editing !== "true") {
+    if (!isEditing) {
       const conflict = findConflictingProduct(state.products, payload.id);
       if (conflict) {
         errorEl.textContent =
