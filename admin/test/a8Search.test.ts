@@ -1,9 +1,29 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { A8_TOP_URL, copyTextSafely, buildA8GuideMessage } from "../public/a8Search.js";
+import { A8_TOP_URL, copyTextSafely, buildA8GuideMessage, buildA8SearchUrl } from "../public/a8Search.js";
 
 test("A8_TOP_URLはA8.netの正しいトップページURLである", () => {
   assert.equal(A8_TOP_URL, "https://www.a8.net/");
+});
+
+test("buildA8SearchUrlは商品名を付与した検索結果URLを返す", () => {
+  const url = buildA8SearchUrl("Notta");
+  assert.equal(url, "https://media-console.a8.net/program/search/keyword?keywords=Notta");
+});
+
+test("buildA8SearchUrlは商品名をURLエンコードする", () => {
+  const url = buildA8SearchUrl("ChatGPT Plus/&テスト");
+  assert.equal(
+    url,
+    `https://media-console.a8.net/program/search/keyword?keywords=${encodeURIComponent("ChatGPT Plus/&テスト")}`,
+  );
+  assert.doesNotMatch(url, /keywords=ChatGPT Plus/);
+});
+
+test("buildA8SearchUrlは商品名が空文字列/未定義の場合A8_TOP_URLにフォールバックする", () => {
+  assert.equal(buildA8SearchUrl(""), A8_TOP_URL);
+  assert.equal(buildA8SearchUrl(undefined), A8_TOP_URL);
+  assert.equal(buildA8SearchUrl("   "), A8_TOP_URL);
 });
 
 test("copyTextSafelyはclipboardImpl.writeTextが成功した場合trueを返す", async () => {
@@ -40,11 +60,13 @@ test("copyTextSafelyはwriteTextが例外/rejectする場合falseを返す(non-s
 test("buildA8GuideMessageはコピー成功時、商品名を含む案内メッセージを返す", () => {
   const message = buildA8GuideMessage("ChatGPT Plus", true);
   assert.match(message, /ChatGPT Plus/);
-  assert.match(message, /コピーしました/);
+  assert.match(message, /コピー済み/);
+  assert.match(message, /検索結果ページ/);
 });
 
 test("buildA8GuideMessageはコピー失敗時、フォールバックとして商品名をテキストで見える形にする", () => {
   const message = buildA8GuideMessage("ChatGPT Plus", false);
   assert.match(message, /ChatGPT Plus/);
   assert.match(message, /コピー&ペースト/);
+  assert.match(message, /検索結果ページ/);
 });

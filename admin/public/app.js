@@ -3,7 +3,7 @@
 // モジュールバンドラは使わずブラウザネイティブのESモジュール(<script type="module">)のみで完結させる。
 import { slugifyProductName } from "./candidateSlug.js";
 import { findConflictingProduct } from "./productConflict.js";
-import { A8_TOP_URL, copyTextSafely, buildA8GuideMessage } from "./a8Search.js";
+import { buildA8SearchUrl, copyTextSafely, buildA8GuideMessage } from "./a8Search.js";
 import { resolveEnabledOnSubmit } from "./productEnabled.js";
 
 (() => {
@@ -162,9 +162,10 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
 
   /**
    * 機能1: A8.netへのショートカット(申請リンク)。
-   * A8.netのプログラム検索は公式にURLパラメータ形式が公開されていないため、商品名を付与した
-   * 検索結果への直リンクは作らない(壊れたリンクになるリスクがあるため作らないと合意済み)。
-   * 代わりにトップページを新しいタブで開き、商品名をクリップボードにコピーして案内する。
+   * A8.net公式ページ(support.a8.net/as/HintOfProgram/selection.php)のHTMLソースに
+   * 実際に埋め込まれているhref値から抽出したURLパターンを用いて、商品名を付与した
+   * プログラム検索結果ページを新しいタブで開く(未ログイン時はログイン再認証画面が
+   * 表示される)。商品名はクリップボードにもコピーし、貼り付け直しの保険とする。
    * @param {string} name
    */
   async function openA8Search(name) {
@@ -173,7 +174,7 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
       window.alert("商品名が未入力のため、A8.netでの検索を開けません。商品名を入力してから実行してください。");
       return;
     }
-    window.open(A8_TOP_URL, "_blank", "noopener,noreferrer");
+    window.open(buildA8SearchUrl(trimmed), "_blank", "noopener,noreferrer");
     const copied = await copyTextSafely(trimmed, window.navigator && window.navigator.clipboard);
     window.alert(buildA8GuideMessage(trimmed, copied));
   }
