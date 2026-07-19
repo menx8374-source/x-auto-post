@@ -111,5 +111,21 @@
       "2078680904474521810",
       "2078680905556635685"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/17/2000000202/",
+    "title": "「スマホで動く」270億パラメーターLLM「Bonsai 27B」登場",
+    "score": 10.68,
+    "selectedAt": "2026-07-19T12:01:48.504Z",
+    "slot": "evening",
+    "status": "posted",
+    "id": "f3488230-dfcd-47f7-b92d-e96cc9d4679e",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/17/2000000202",
+    "postedAt": "2026-07-19T12:01:49.810Z",
+    "tweetIds": [
+      "2078812550192603586",
+      "2078812551530561732",
+      "2078812552553959674"
+    ]
   }
 ]
