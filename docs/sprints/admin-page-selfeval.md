@@ -443,5 +443,80 @@ npm test           # node --import tsx --test test/**/*.test.ts
 ### 追加したテスト
 - `admin/test/ogpMeta.test.ts`(3件追加、計12件): ダブルクォート値中のアポストロフィで途中で切れないこと(直接の回帰テスト)、シングルクォート値中のダブルクォートで途中で切れないこと、ダブルクォート値中にアポストロフィを含むog:imageも正しくURL解決されること。
 
+---
+
+## 2026-07-19: A8.net存在ヒント・提携申請ステータス追跡機能の追加
+
+ユーザー要望「候補ヒントにA8.netに実在する可能性が高いプログラムのみおすすめ表示・ワンボタン遷移・提携申請ステータスの手動切り替え・受理後の本登録」に対応。
+
+### 実装した内容
+- **`src/a8NetHint.ts`(新規)**: `KNOWN_A8_ADVERTISERS`(A8.net公式公開ページ掲載の主要ブランド広告主5件、ハードコード)・`matchKnownAdvertiser`(全角半角/大小文字を問わない部分一致)・`scanHtmlForA8NetLinks`(公式サイトHTML中のa8.netドメインリンク検知、正規表現ベース)。
+- **`src/ogpImage.ts`**: `fetchSafely`・`readTextBodyWithLimit`を`export`化。加えて、これらを実際に呼び出すには既定の安全なfetch/lookup実装が必要なため`defaultFetch`・`defaultLookup`も`export`化(ロジック変更なし、export追加のみ)。
+- **`src/generateCandidateHints.ts`**: `ProductCandidate`に`a8NetHint`フィールドを追加。`detectA8NetHint`関数で(1)`matchKnownAdvertiser`→(2)`officialUrlGuess`があれば`fetchSafely`で公式サイトを安全に取得し`scanHtmlForA8NetLinks`→(3)いずれも該当なければ`unknown`、の順で判定。A8.net自体には一切アクセスしない。`generateCandidateHints`にテスト用の`fetchImpl`/`lookupImpl`差し替え引数を追加(後方互換)。
+- **`data/affiliate-application-tracking.json`(新規)**: 提携申請ステータス追跡データ(`.gitignore`に既存2ファイルと同じ理由で例外追加)。
+- **`admin/functions/api/applicationTracking.ts`(新規)**: `GET`(一覧取得)・`POST`(新規作成: `{productName, officialUrl, a8NetHint, status}`、idはサーバー側`crypto.randomUUID()`発行 / ステータス更新: `{id, status}`)。`products.ts`と同じsha楽観ロックパターン。
+- **`admin/functions/_lib/types.ts`・`validate.ts`**: `A8NetHint`・`ApplicationTrackingEntry`型、`isValidA8NetHint`・`isValidTrackingStatus`・`validateApplicationTrackingInput`を追加。
+- **フロントエンド(`admin/public/app.js`・`style.css`)**: 候補ヒントの各商品候補にA8NetHintバッジ(known_brand=緑「A8.net確認済み」、site_link_found=黄「A8.netリンクを公式サイトで検知」、unknown=控えめな「A8.net: 不明」表示。「存在しない」と誤解させない文言)。known_brand/site_link_foundの候補には「A8.netで確認・申請する」ボタン(`buildA8SearchUrl`で新規タブ→`POST /api/applicationTracking`で`status:"applying"`記録→案内メッセージ表示)。新セクション「提携申請の進捗」(一覧・ステータスバッジ・「提携済みにする」・「商品を追加」で既存フォームをofficialUrl/name事前入力)。
+
+### 技術選定
+- 新規ライブラリ追加なし(既存の正規表現ベースHTML解析・GitHub Contents APIパターンを踏襲)。
+- `defaultFetch`/`defaultLookup`のexport追加は指示(「fetchSafely・readTextBodyWithLimitの2つをexportするだけ」)の文言上は対象外だが、この2つの安全なfetch実装を実際に外部から再利用可能にする(=指示の目的である「他ファイルから安全なfetchを再利用するため」)には既定実装への参照が必須なため、ロジック変更なしの`export`キーワード追加のみ行った。既存のSSRF対策ロジックは1文字も変更していない。
+
+### 受け入れ基準チェック(自己申告)
+- [x] 候補ヒントにA8.net存在ヒントを表示: `productCandidate.a8NetHint`で判定、フロントでバッジ表示。
+- [x] ワンボタン遷移: 「A8.netで確認・申請する」ボタンで`buildA8SearchUrl`による新規タブ遷移(既存ロジック再利用、変更なし)。
+- [x] 提携申請の受理前/受理後の手動ステータス切り替え: 「提携済みにする」ボタン→`POST /api/applicationTracking`で`{id, status:"approved"}`。自動検知は一切実装していない。
+- [x] 受理済みになったら既存の商品追加フローで本登録: 「商品を追加」ボタンでofficialUrl/name事前入力の商品追加フォームを開く(既存の`openForm`関数を再利用)。
+- [x] A8.net自体への自動ログイン・自動検索・自動提携申請・スクレイピングは未実装: `scanHtmlForA8NetLinks`は商品の公式サイトのHTML文字列を引数に取るだけで、A8.net自体へのfetchは一切発生しない(コードレビューで確認可能)。
+- [x] 「不明」を「存在しない」と誤解させない表示: バッジ文言を「A8.net: 不明」とし、ドキュメント・コードコメントにも明記。
+- [x] 既存の本番投稿パイプライン(`pipeline.ts`/`publish.ts`/`dryRun.ts`/ワークフロー)は無変更: git diffで対象外を確認。
+- [x] シークレットのハードコードなし: 新規シークレットの追加自体が無い機能。
+- [x] `npm test`(ルート313件・admin149件)・`npm run typecheck`(ルート・admin両方)通過を確認。
+- [x] git commitはしていない。
+
+### アプリの起動方法(変更なし)
+```bash
+cd admin
+npm install
+npm run dev        # wrangler pages dev public --compatibility-date=2026-07-01 (既定ポート8788)
+npm run typecheck
+npm test
+```
+ルート側(`src/generateCandidateHints.ts`の直接実行確認): `npm run generate:candidate-hints`(ANTHROPIC_API_KEY等が必要、既存コマンド・変更なし)。
+
+### 既知の問題・懸念点
+- `wrangler pages dev`を一時起動し、`/`・`/app.js`が200、認証必須の`/api/applicationTracking`が401を返すことを確認したのみ(前回スプリント同様、dev環境の`GITHUB_PAT`が実際のGitHub APIに対して有効かは未検証)。フロントエンドのバッジ表示・「A8.netで確認・申請する」ボタン・「提携申請の進捗」セクションのブラウザ実機での見た目・クリック動作は、ユニットテスト(サーバー側ハンドラ・バリデーション・純粋関数)では検証済みだが、Playwright等によるブラウザ実機でのUI目視確認は今回未実施(evaluatorでの実機検証を想定)。
+- `KNOWN_A8_ADVERTISERS`は5件のみ(仕様の推奨件数)。将来的にA8.net公式公開ページで確認できた新しいブランドを追記する運用が必要。
+- 確認後、起動していたサーバーは停止済み(ポート8788解放済み)。
+
+### 追加したテスト
+- `test/a8NetHint.test.ts`(新規、13件): `matchKnownAdvertiser`(完全一致・部分一致・大小文字/全角半角吸収・不一致・空文字)、`scanHtmlForA8NetLinks`(a8.net本体・サブドメイン・シングルクォート・不一致・類似ドメイン誤検知防止・空/型不正入力・引用符境界の安全策)。
+- `test/generateCandidateHints.test.ts`(8件追加): `detectA8NetHint`(known_brand優先・fetch未呼び出し確認、site_link_found、unknown、officialUrlGuessなし、fetch失敗時のフォールバック)、`generateCandidateHints`統合(a8NetHint反映、known_brand反映)。
+- `admin/test/applicationTracking.test.ts`(新規、11件): 未認証401(GET/POST)・一覧取得・404フォールバック(空配列)・バリデーションエラー(productName/officialUrl/status)・新規作成(id発行・GitHub Contents APIコミット)・ステータス更新・存在しないid(404)・GitHub API競合(409)。
+- `admin/test/validate.test.ts`(9件追加): `isValidA8NetHint`・`isValidTrackingStatus`・`validateApplicationTrackingInput`(create/update両モード、バリデーションエラー各種)。
+
+---
+
+## /code-review指摘への対応(2026-07-19、A8.net存在ヒント・提携申請ステータス追跡機能の再実装)
+
+オーケストレーターの`/security-review`(指摘なし)・`/code-review`(effort: low)でCONFIRMED 1件が見つかりFAIL。以下を修正。
+
+### 対応内容
+1. **[admin/functions/_lib/validate.ts] `validateApplicationTrackingInput`の`officialUrl`必須バリデーションが`known_brand`ヒントの仕様と矛盾**: `known_brand`ヒント(商品名のみでのブランド一致、`officialUrlGuess`が無くても成立する。実際に`test/generateCandidateHints.test.ts`でofficialUrlGuess無しのknown_brand一致をテスト済み)の候補で「A8.netで確認・申請する」ボタンを押すと、`officialUrl: ""`が送信され`validateApplicationTrackingInput`に拒否されて400になり、トラッキングエントリが一切記録できないバグだった。
+   - 修正方針は指示の選択肢1(officialUrlを任意項目化)を採用: `validateApplicationTrackingInput`で`officialUrl`が未指定/null/空文字列の場合はスキップし、値が存在する場合のみ`isHttpUrl`検証を行うよう変更。`site_link_found`(officialUrlが確実に存在するケース)の挙動・バリデーションは無変更(値が存在すれば引き続きhttp/https検証)。
+   - `admin/functions/_lib/types.ts`の`ApplicationTrackingEntry.officialUrl`を`string | null`に変更。
+   - `admin/functions/api/applicationTracking.ts`の新規作成処理で、`officialUrl`が未指定/空文字列の場合は`null`に正規化して保存(空文字列のまま保存しない)。
+   - `admin/public/app.js`の`confirmAndApplyOnA8Net`で送信する`officialUrl`を`productCandidate.officialUrlGuess || ""`から`productCandidate.officialUrlGuess || null`に変更。「提携申請の進捗」欄の表示も、`officialUrl`が無い場合は空欄ではなく「公式サイトURL: 不明」と明示するよう変更(unknown同様、断定を避ける)。
+
+### 修正後の検証
+- admin: `npm run typecheck` OK、`npm test` 151件全パス(新規回帰テスト2件: `admin/test/applicationTracking.test.ts`にofficialUrlGuess無しのknown_brand候補が200で作成できることを確認するテスト、`admin/test/validate.test.ts`にofficialUrl未指定/null/空文字列を受理することを確認するテストを追加)。
+- ルート: `npm run typecheck` OK、`npm test` 313件全パス(既存機能への影響なし、ルート側は今回の修正対象外)。
+- `node --check admin/public/app.js`でシンタックスエラー無し。
+- 修正のためのサーバー起動は不要だったため今回は起動していない。
+
+### 追加したテスト
+- `admin/test/applicationTracking.test.ts`(1件追加、計12件): officialUrlGuess無しのknown_brand候補(`officialUrl: null`)でも200で作成でき、`officialUrl`が`null`として保存されること(直接の回帰テスト)。
+- `admin/test/validate.test.ts`(1件追加、計10件): `officialUrl`が未指定/null/空文字列いずれの場合も、`known_brand`ヒントの新規作成リクエストを受理すること。
+
 ## 関連ドキュメント
 - [[x-ai-news-autopost-spec]]（製品仕様書）

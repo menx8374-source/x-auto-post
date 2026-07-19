@@ -157,8 +157,10 @@ async function rawFetchWithTimeout(
   }
 }
 
-const defaultFetch: FetchLike = rawFetchWithTimeout;
-const defaultLookup: LookupLike = (hostname) => dns.lookup(hostname, { all: true });
+// export: src/a8NetHint.ts連携(src/generateCandidateHints.ts)がfetchSafely()をそのまま呼び出す際の
+// 既定のfetchImpl/lookupImplとして再利用するため(ロジック変更なし、exportキーワードの追加のみ)。
+export const defaultFetch: FetchLike = rawFetchWithTimeout;
+export const defaultLookup: LookupLike = (hostname) => dns.lookup(hostname, { all: true });
 
 /** タグ文字列から指定した属性の値を取り出す(属性の順序は問わない) */
 function extractAttr(tag: string, attr: string): string | undefined {
@@ -297,7 +299,7 @@ async function isUrlSafeToFetch(rawUrl: string, lookupImpl: LookupLike): Promise
  * 実際の接続時の名前解決でも同じ検証を行わせる(DNSリバインディング対策の本体)。
  * どの段階で拒否・失敗しても例外を投げず`null`を返す。
  */
-async function fetchSafely(
+export async function fetchSafely(
   initialUrl: string,
   fetchImpl: FetchLike,
   lookupImpl: LookupLike,
@@ -459,7 +461,7 @@ async function readImageBodyWithLimit(
 }
 
 /** HTMLテキストを上限バイト数まで読み込む(ストリーミング優先、非対応時はtext()にフォールバック) */
-async function readTextBodyWithLimit(
+export async function readTextBodyWithLimit(
   response: Response,
   maxBytes: number,
   timeoutMs: number

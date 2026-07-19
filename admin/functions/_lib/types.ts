@@ -48,3 +48,32 @@ export interface AffiliateProduct {
   /** trueの場合のみ投稿対象に含める */
   enabled: boolean;
 }
+
+/**
+ * A8.net存在ヒント(ヒューリスティック、断定ではない)。
+ * `src/generateCandidateHints.ts`の`A8NetHint`型と同じ形(Workers runtimeは`src/`をimportできないため、
+ * このファイルで独立して再定義する)。
+ */
+export type A8NetHint =
+  | { type: "known_brand"; a8AdvertiserId: string }
+  | { type: "site_link_found" }
+  | { type: "unknown" };
+
+/**
+ * A8.net提携申請のステータス追跡エントリ。提携申請が実際に受理されたかどうかは
+ * ユーザー本人がA8.netにログインしないと分からないため、statusは自動検知ではなく
+ * ユーザーがadmin管理ページ上で手動切り替えする(applying→approvedの一方向遷移を想定)。
+ */
+export interface ApplicationTrackingEntry {
+  id: string;
+  productName: string;
+  /**
+   * 公式サイトURL。"known_brand"ヒント(商品名のみでのブランド一致)はofficialUrlGuessが
+   * 無くても成立するため、不明な場合はnullを許容する(空文字列ではなくnullで統一する)。
+   */
+  officialUrl: string | null;
+  a8NetHint: A8NetHint;
+  status: "applying" | "approved";
+  createdAt: string;
+  updatedAt: string;
+}

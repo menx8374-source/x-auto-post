@@ -12,10 +12,13 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
   const appEl = document.getElementById("app");
   const logoutButton = document.getElementById("logout-button");
 
-  /** @type {{products: Array<object>, candidates: object, formOpen: boolean, pendingRender: boolean}} */
+  /** @type {{products: Array<object>, candidates: object, tracking: Array<object>, formOpen: boolean, pendingRender: boolean}} */
   const state = {
     products: [],
     candidates: { generatedAt: null, items: [] },
+    // 提携申請の進捗(A8.net存在ヒントが確認できた候補について、ユーザーが「A8.netで確認・申請する」を
+    // 押した際に作成されるトラッキングエントリ一覧)。
+    tracking: [],
     // 編集/追加フォームが開いている間は、バックグラウンドの再描画(renderApp)で
     // 入力内容が消えてしまわないようscheduleRender()経由で再描画を保留する。
     formOpen: false,
@@ -115,6 +118,7 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
     );
 
     appEl.appendChild(renderCandidatesSection());
+    appEl.appendChild(renderTrackingSection());
   }
 
   /**
@@ -568,28 +572,192 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
       // 特定の名前を持つ商業的なAI製品・ツール・サービスが主題と判定された項目のみ、
       // バッジと「商品として追加」ボタンを表示する(src/generateCandidateHints.tsのproductCandidate)。
       if (item.productCandidate && item.productCandidate.name) {
-        children.push(
-          el("div", { class: "candidate-product" }, [
-            el("span", { class: "badge badge-product", text: `商品候補: ${item.productCandidate.name}` }),
-            el(
-              "button",
-              { class: "btn btn-secondary", type: "button", onclick: () => addProductFromCandidate(item) },
-              ["商品として追加"]
-            ),
-            el(
-              "button",
-              {
-                class: "btn btn-secondary",
-                type: "button",
-                onclick: () => openA8Search(item.productCandidate.name),
-              },
-              ["A8.netで探す"]
-            ),
-          ])
+        const pc = item.productCandidate;
+        const rowChildren = [
+          el("span", { class: "badge badge-product", text: `商品候補: ${pc.name}` }),
+        ];
+        const a8Badge = renderA8NetHintBadge(pc.a8NetHint);
+        if (a8Badge) rowChildren.push(a8Badge);
+        rowChildren.push(
+          el(
+            "button",
+            { class: "btn btn-secondary", type: "button", onclick: () => addProductFromCandidate(item) },
+            ["商品として追加"]
+          ),
+          el(
+            "button",
+            { class: "btn btn-secondary", type: "button", onclick: () => openA8Search(pc.name) },
+            ["A8.netで探す"]
+          )
         );
+
+        // known_brand/site_link_foundの場合のみ、「A8.netで確認・申請する」ボタンを追加表示する
+        // (unknownの場合は「A8.netに存在しないと確認できた」わけではないため、通常の「A8.netで探す」
+        // ボタンのみ残す。提携申請の進捗トラッキングは、ある程度確度が高いヒントがある場合のみ促す)。
+        if (pc.a8NetHint && (pc.a8NetHint.type === "known_brand" || pc.a8NetHint.type === "site_link_found")) {
+          rowChildren.push(
+            el(
+              "button",
+              { class: "btn btn-primary", type: "button", onclick: () => confirmAndApplyOnA8Net(pc) },
+              ["A8.netで確認・申請する"]
+            )
+          );
+        }
+
+        children.push(el("div", { class: "candidate-product" }, rowChildren));
       }
 
       list.appendChild(el("li", { class: "candidate-item" }, children));
+    });
+    section.appendChild(list);
+    return section;
+  }
+
+  /**
+   * A8.net存在ヒント(ヒューリスティック、断定ではない)に応じたバッジ要素を返す。
+   * unknownは「存在しない」ではなく「不明」であることを誤解させないよう控えめな表示にする。
+   * a8NetHint自体が無い場合はnullを返す(バッジを表示しない)。
+   */
+  function renderA8NetHintBadge(a8NetHint) {
+    if (!a8NetHint) return null;
+    if (a8NetHint.type === "known_brand") {
+      return el("span", { class: "badge badge-a8-known", text: "A8.net確認済み(主要ブランド)" });
+    }
+    if (a8NetHint.type === "site_link_found") {
+      return el("span", { class: "badge badge-a8-site-link", text: "A8.netリンクを公式サイトで検知" });
+    }
+    // "unknown": 「A8.netに存在しない」ことを意味しないため、断定的な表示にしない
+    return el("span", { class: "badge badge-a8-unknown", text: "A8.net: 不明" });
+  }
+
+  /**
+   * 「A8.netで確認・申請する」ボタンの処理。
+   * (a) 既存のbuildA8SearchUrlでA8.netの検索結果ページを新しいタブで開く。
+   * (b) POST /api/applicationTrackingで新規トラッキングエントリをstatus:"applying"で作成する。
+   * (c) 案内メッセージを表示する。
+   * A8.netへの自動ログイン・自動検索・自動提携申請は行わない(新しいタブでURLを開くのみ)。
+   * @param {{name: string, officialUrlGuess: string | null, a8NetHint?: object}} productCandidate
+   */
+  async function confirmAndApplyOnA8Net(productCandidate) {
+    window.open(buildA8SearchUrl(productCandidate.name), "_blank", "noopener,noreferrer");
+
+    const { res, data, networkError } = await fetchJSON("/api/applicationTracking", {
+      method: "POST",
+      body: JSON.stringify({
+        productName: productCandidate.name,
+        // officialUrlGuessが無い場合(例: officialUrlGuessなしのknown_brand候補)もnullとして
+        // 送信し、トラッキングエントリ自体は作成できるようにする(サーバー側は任意項目として扱う)。
+        officialUrl: productCandidate.officialUrlGuess || null,
+        a8NetHint: productCandidate.a8NetHint || { type: "unknown" },
+        status: "applying",
+      }),
+    });
+
+    if (networkError) {
+      window.alert(
+        `A8.netの検索結果ページを新しいタブで開きましたが、提携申請の進捗記録に失敗しました(通信エラー: ${networkError})。`
+      );
+      return;
+    }
+    if (!res.ok) {
+      window.alert(
+        `A8.netの検索結果ページを新しいタブで開きましたが、提携申請の進捗記録に失敗しました: ${(data && data.error) || res.status}`
+      );
+      return;
+    }
+
+    window.alert(
+      "A8.netの検索結果を開きました。提携申請の状況は下部の「提携申請の進捗」欄で管理できます。"
+    );
+    await loadTracking();
+  }
+
+  function trackingStatusLabel(status) {
+    return status === "approved" ? "提携済み" : "申請中";
+  }
+
+  function trackingStatusBadgeClass(status) {
+    return status === "approved" ? "badge badge-tracking-approved" : "badge badge-tracking-applying";
+  }
+
+  /** 「提携済みにする」ボタン: POST /api/applicationTrackingで{id, status:"approved"}に更新する */
+  async function markTrackingApproved(entry) {
+    const { res, data, networkError } = await fetchJSON("/api/applicationTracking", {
+      method: "POST",
+      body: JSON.stringify({ id: entry.id, status: "approved" }),
+    });
+    if (networkError) {
+      window.alert(`通信エラーが発生しました: ${networkError}`);
+      return;
+    }
+    if (!res.ok) {
+      window.alert(`更新に失敗しました: ${(data && data.error) || res.status}`);
+      return;
+    }
+    await loadTracking();
+  }
+
+  /**
+   * 「商品を追加」ボタン(status:"approved"のエントリのみ): 既存の商品追加フォームを
+   * officialUrl/name事前入力で開く。実際のアフィリエイトリンクはユーザーがA8.netで作成後に
+   * 貼り付ける(このボタン自体はアフィリエイトリンクを生成・自動入力しない)。
+   */
+  function openFormFromTrackingEntry(entry) {
+    openForm(null, {
+      id: slugifyProductName(entry.productName),
+      name: entry.productName,
+      officialUrl: entry.officialUrl,
+    });
+  }
+
+  function renderTrackingSection() {
+    const section = el("section", { class: "card" }, [
+      el("h2", { text: "提携申請の進捗" }),
+      el("p", {
+        class: "hint-note",
+        text:
+          "「A8.netで確認・申請する」から記録した提携申請の進捗です。提携申請の受理状況はA8.net側で" +
+          "ご自身で確認し、下記のステータスを手動で切り替えてください(自動検知は行いません)。",
+      }),
+    ]);
+
+    const entries = state.tracking || [];
+    if (entries.length === 0) {
+      section.appendChild(el("p", { class: "empty-state", text: "提携申請の記録はまだありません。" }));
+      return section;
+    }
+
+    const list = el("ul", { class: "tracking-list" });
+    entries.forEach((entry) => {
+      const actions = [];
+      if (entry.status === "applying") {
+        actions.push(
+          el(
+            "button",
+            { class: "btn btn-secondary", type: "button", onclick: () => markTrackingApproved(entry) },
+            ["提携済みにする"]
+          )
+        );
+      } else if (entry.status === "approved") {
+        actions.push(
+          el(
+            "button",
+            { class: "btn btn-primary", type: "button", onclick: () => openFormFromTrackingEntry(entry) },
+            ["商品を追加"]
+          )
+        );
+      }
+
+      list.appendChild(
+        el("li", { class: "tracking-item" }, [
+          el("div", { class: "tracking-item-header" }, [
+            el("span", { class: "product-name", text: entry.productName }),
+            el("span", { class: trackingStatusBadgeClass(entry.status), text: trackingStatusLabel(entry.status) }),
+          ]),
+          el("p", { class: "tracking-item-meta", text: entry.officialUrl || "公式サイトURL: 不明" }),
+          el("div", { class: "tracking-item-actions" }, actions),
+        ])
+      );
     });
     section.appendChild(list);
     return section;
@@ -626,6 +794,19 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
     // 401/失敗時は候補ヒント欄を空のまま表示する(商品一覧は表示できているためブロックしない)
   }
 
+  async function loadTracking() {
+    const { res, data, networkError } = await fetchJSON("/api/applicationTracking");
+    if (networkError) {
+      console.error("failed to load application tracking entries", networkError);
+      return; // 提携申請の進捗欄は商品一覧をブロックしないためログのみ
+    }
+    if (res.ok && data) {
+      state.tracking = data.entries || [];
+      scheduleRender();
+    }
+    // 401/失敗時は提携申請の進捗欄を空のまま表示する(商品一覧は表示できているためブロックしない)
+  }
+
   async function init() {
     logoutButton.addEventListener("click", async () => {
       const { networkError } = await fetchJSON("/api/auth/logout", { method: "POST" });
@@ -651,6 +832,7 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
     state.products = (data && data.products) || [];
     renderApp();
     loadCandidates();
+    loadTracking();
   }
 
   init();

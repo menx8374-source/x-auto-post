@@ -30,7 +30,18 @@ import { fileURLToPath } from "node:url";
 import type Anthropic from "@anthropic-ai/sdk";
 import { log } from "./logger.js";
 import { collectAndScoreNews } from "./collectNews.js";
-import { isHttpUrl } from "./ogpImage.js";
+import {
+  isHttpUrl,
+  fetchSafely,
+  readTextBodyWithLimit,
+  defaultFetch,
+  defaultLookup,
+  OGP_FETCH_TIMEOUT_MS,
+  MAX_ARTICLE_HTML_BYTES,
+  type FetchLike,
+  type LookupLike,
+} from "./ogpImage.js";
+import { matchKnownAdvertiser, scanHtmlForA8NetLinks } from "./a8NetHint.js";
 import {
   extractTextFromResponse,
   createAnthropicClient,
@@ -48,11 +59,25 @@ export const TOP_N_HINTS = 15;
 /** 商品候補分類の呼び出しに使う最大出力トークン数(最大15件分のJSON配列を返すため多めに確保) */
 export const MAX_CLASSIFICATION_OUTPUT_TOKENS = 1500;
 
+/**
+ * A8.net存在ヒント(ヒューリスティック、断定ではない。詳細は`src/a8NetHint.ts`のコメント参照)。
+ * - "known_brand": 商品名がA8.net公式公開ページ掲載の主要ブランド広告主と一致した。
+ * - "site_link_found": 商品の公式サイト自体にA8.netドメインへのリンクが見つかった。
+ * - "unknown": 上記いずれにも一致しなかった(「A8.netに存在しない」という意味ではなく、
+ *   あくまで自動判定できなかった、というだけ)。
+ */
+export type A8NetHint =
+  | { type: "known_brand"; a8AdvertiserId: string }
+  | { type: "site_link_found" }
+  | { type: "unknown" };
+
 export interface ProductCandidate {
   /** ニュースタイトルから抽出した製品/ツール/サービス名(事実情報は含まない、名称のみ) */
   name: string;
   /** タイトル/URLから明確に読み取れる場合のみの公式サイトURL推測。不明な場合はnull */
   officialUrlGuess: string | null;
+  /** A8.net存在ヒント(参考情報)。detectA8NetHintで検出された場合のみ付加される */
+  a8NetHint?: A8NetHint;
 }
 
 export interface CandidateHintItem {
@@ -164,6 +189,46 @@ export function parseProductCandidateResponse(raw: string, itemCount: number): M
 }
 
 /**
+ * 商品候補1件分のA8.net存在ヒントを検出する。
+ * 1. まず`matchKnownAdvertiser`(既知の主要ブランド広告主一覧との名前一致)を試す。
+ * 2. 一致しない場合、`officialUrlGuess`があれば、そのページを`fetchSafely`(SSRF対策済み、
+ *    src/ogpImage.ts)で安全に取得し、`scanHtmlForA8NetLinks`でA8.netドメインへのリンクの
+ *    有無を判定する(A8.net自体へはアクセスせず、商品の公式サイトを見るだけ)。
+ * 3. いずれでもなければ"unknown"(「存在しない」ではなく「不明」)。
+ * 公式サイト取得・読み取りのどの段階が失敗しても例外を投げず"unknown"にフォールバックする
+ * (この処理全体が候補ヒント生成全体を失敗させないため)。
+ */
+export async function detectA8NetHint(
+  productCandidate: Pick<ProductCandidate, "name" | "officialUrlGuess">,
+  fetchImpl: FetchLike = defaultFetch,
+  lookupImpl: LookupLike = defaultLookup
+): Promise<A8NetHint> {
+  const knownMatch = matchKnownAdvertiser(productCandidate.name);
+  if (knownMatch) {
+    return { type: "known_brand", a8AdvertiserId: knownMatch.a8AdvertiserId };
+  }
+
+  if (productCandidate.officialUrlGuess && isHttpUrl(productCandidate.officialUrlGuess)) {
+    try {
+      const fetched = await fetchSafely(productCandidate.officialUrlGuess, fetchImpl, lookupImpl, OGP_FETCH_TIMEOUT_MS);
+      if (fetched) {
+        const textResult = await readTextBodyWithLimit(fetched.response, MAX_ARTICLE_HTML_BYTES, OGP_FETCH_TIMEOUT_MS);
+        if (textResult.status === "ok" && scanHtmlForA8NetLinks(textResult.value)) {
+          return { type: "site_link_found" };
+        }
+      }
+    } catch (err) {
+      log.warn("failed to scan official site for a8.net links; treating a8NetHint as unknown", {
+        officialUrlGuess: productCandidate.officialUrlGuess,
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return { type: "unknown" };
+}
+
+/**
  * 収集したニュース項目一覧から、商品候補(productCandidate)をindexごとに検出する。
  * ANTHROPIC_API_KEY未設定・API呼び出し失敗・レスポンスのパース失敗、いずれの場合も
  * 例外を投げず空のMapを返す(呼び出し側は拡張情報なしで既存の動作にフォールバックする)。
@@ -212,7 +277,12 @@ export async function detectProductCandidates(
 export async function generateCandidateHints(
   outFile: string = DEFAULT_CANDIDATE_HINTS_FILE,
   collectFn: () => Promise<{ scored: NewsCandidate[] }> = collectAndScoreNews,
-  client?: AnthropicMessageClient | null
+  client?: AnthropicMessageClient | null,
+  // A8.net存在ヒント検出用のfetchImpl/lookupImpl。テスト用の差し替えポイント(既定はsrc/ogpImage.tsの
+  // 本物の安全なfetch/lookup)。既存呼び出し元(.github/workflows/update-candidate-hints.yml)には
+  // 影響しない後方互換な追加引数。
+  fetchImpl: FetchLike = defaultFetch,
+  lookupImpl: LookupLike = defaultLookup
 ): Promise<CandidateHintsFile> {
   const { scored } = await collectFn();
 
@@ -240,6 +310,7 @@ export async function generateCandidateHints(
     client
   );
   for (const [index, productCandidate] of candidateMap) {
+    productCandidate.a8NetHint = await detectA8NetHint(productCandidate, fetchImpl, lookupImpl);
     items[index].productCandidate = productCandidate;
   }
 

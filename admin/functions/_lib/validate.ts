@@ -5,7 +5,7 @@
  * `src/ogpImage.ts`(isHttpUrl)・`src/generateAffiliateRedirects.ts`(SAFE_PRODUCT_ID)と
  * 同じロジックをここで独立して再実装する(import不可のため)。
  */
-import type { AffiliateProduct } from "./types";
+import type { AffiliateProduct, A8NetHint, ApplicationTrackingEntry } from "./types";
 
 /** http:/https:のURLのみ許可する(javascript:等の不正スキームを拒否) */
 export function isHttpUrl(url: string): boolean {
@@ -103,4 +103,61 @@ export function toAffiliateProduct(input: Record<string, unknown>): AffiliatePro
     product.category = input.category;
   }
   return product;
+}
+
+/** `A8NetHint`(src/generateCandidateHints.tsのA8NetHint型と同じ形)として妥当な形式かを検証する */
+export function isValidA8NetHint(input: unknown): input is A8NetHint {
+  if (typeof input !== "object" || input === null) return false;
+  const hint = input as Record<string, unknown>;
+  if (hint.type === "known_brand") {
+    return typeof hint.a8AdvertiserId === "string" && hint.a8AdvertiserId.length > 0;
+  }
+  return hint.type === "site_link_found" || hint.type === "unknown";
+}
+
+/** 提携申請ステータスとして許可する値のみを受け付ける("applying"→"approved"の一方向遷移を想定) */
+export function isValidTrackingStatus(input: unknown): input is ApplicationTrackingEntry["status"] {
+  return input === "applying" || input === "approved";
+}
+
+/**
+ * `/api/applicationTracking` POSTのリクエストボディを検証する。
+ * `id`が含まれる場合は既存エントリのステータス更新のみ({id, status})、含まれない場合は
+ * 新規追加({productName, officialUrl, a8NetHint, status})として扱う。
+ */
+export function validateApplicationTrackingInput(
+  input: unknown
+): ValidationResult & { mode?: "create" | "update" } {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return { valid: false, errors: ["リクエストボディはオブジェクトである必要があります"] };
+  }
+  const body = input as Record<string, unknown>;
+
+  if (typeof body.id === "string" && body.id.length > 0) {
+    const errors: string[] = [];
+    if (!isValidTrackingStatus(body.status)) {
+      errors.push('statusは"applying"または"approved"である必要があります');
+    }
+    return { valid: errors.length === 0, errors, mode: "update" };
+  }
+
+  const errors: string[] = [];
+  if (typeof body.productName !== "string" || body.productName.trim().length === 0) {
+    errors.push("productNameは必須の文字列です");
+  }
+  // officialUrlは任意項目として扱う("known_brand"ヒントは商品名のみでのブランド一致で成立し、
+  // officialUrlGuessが無い場合もあるため)。値が指定されている場合のみhttp:/https:を検証する。
+  // 未指定/null/空文字列はofficialUrl不明のまま記録できる(空文字列はnullと同じ扱いにする)。
+  if (body.officialUrl !== undefined && body.officialUrl !== null && body.officialUrl !== "") {
+    if (typeof body.officialUrl !== "string" || !isHttpUrl(body.officialUrl)) {
+      errors.push("officialUrlを指定する場合はhttp:またはhttps:のURLである必要があります");
+    }
+  }
+  if (!isValidA8NetHint(body.a8NetHint)) {
+    errors.push("a8NetHintの形式が不正です");
+  }
+  if (!isValidTrackingStatus(body.status)) {
+    errors.push('statusは"applying"または"approved"である必要があります');
+  }
+  return { valid: errors.length === 0, errors, mode: "create" };
 }

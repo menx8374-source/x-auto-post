@@ -45,6 +45,10 @@ data/history/*
 # (data/history/affiliate-post-history.jsonと同じ理由)。data/output/配下は引き続き無視のまま。
 !data/affiliate-candidate-hints.json
 
+# A8.net提携申請ステータス追跡(admin管理ページがGitHub Contents API経由でコミットして永続化するデータ。
+# 上記2ファイルと同じ理由)。
+!data/affiliate-application-tracking.json
+
 # admin/(Cloudflare Pages)サブプロジェクトのローカル開発用シークレット・wrangler実行時状態。
 # admin/node_modules/ は上記 node_modules/ パターンで既にカバーされる。
 admin/.dev.vars

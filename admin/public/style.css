@@ -330,6 +330,67 @@ body {
   color: var(--color-primary);
 }
 
+.badge-a8-known {
+  background: #dcfce7;
+  color: var(--color-on);
+}
+
+.badge-a8-site-link {
+  background: #fef9c3;
+  color: #92702a;
+}
+
+.badge-a8-unknown {
+  background: #f3f4f6;
+  color: var(--color-muted);
+}
+
+.badge-tracking-applying {
+  background: #fef9c3;
+  color: #92702a;
+}
+
+.badge-tracking-approved {
+  background: #dcfce7;
+  color: var(--color-on);
+}
+
+.tracking-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tracking-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+
+.tracking-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tracking-item-meta {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  margin: 4px 0;
+  word-break: break-word;
+}
+
+.tracking-item-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 @media (min-width: 480px) {
   .app-main {
     padding: 16px;
