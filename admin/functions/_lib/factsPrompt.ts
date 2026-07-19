@@ -5,12 +5,11 @@
  * Workers runtimeは`src/generatePost.ts`(Node向けAnthropic SDKラッパー)をimportできないため、
  * `admin/functions/api/suggestFacts.ts`から`fetch()`でAnthropic APIを直接呼び出す。ここではその
  * 呼び出しに必要な定数・プロンプト構築・レスポンス解析のみを純粋関数として切り出し、実APIを
- * 呼ばずにユニットテストできるようにする(`src/generateCandidateHints.ts`と同じ設計)。
+ * 呼ばずにユニットテストできるようにする。
  *
  * 【重要・法令順守】プロンプトインジェクション対策として、ページ本文はユーザー入力と同じ
- * 信頼度の低いデータであり指示ではないことを明示する。また`src/generateAffiliatePost.ts`・
- * `src/generateCandidateHints.ts`と同じく「テキストに書かれていない事実を創作しない」を
- * 最重要制約とする(景品表示法対応)。
+ * 信頼度の低いデータであり指示ではないことを明示する。また`src/generateAffiliatePost.ts`と
+ * 同じく「テキストに書かれていない事実を創作しない」を最重要制約とする(景品表示法対応)。
  */
 
 /** `src/generatePost.ts`のDEFAULT_MODELと同じ値(モデルIDが変わった場合は両方更新すること) */
@@ -63,7 +62,7 @@ export function parseFactsSuggestionResponse(raw: string): string[] {
   if (typeof raw !== "string") return [];
 
   // モデルがコードブロック(```json ... ```)で囲んで返すことがあるため、先頭/末尾の
-  // フェンスを取り除いてからパースする(src/generateCandidateHints.tsと同種の安全網)。
+  // フェンスを取り除いてからパースする安全網。
   const cleaned = raw
     .trim()
     .replace(/^```(?:json)?\s*/i, "")

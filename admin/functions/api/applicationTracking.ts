@@ -2,20 +2,23 @@
  * GET  /api/applicationTracking : 認証必須。data/affiliate-application-tracking.json の内容を
  *                                  GitHub Contents API経由で取得して返す。
  * POST /api/applicationTracking : 認証必須。
- *   - `{ productName, officialUrl, a8NetHint, status }` (idを含まない): 新規トラッキングエントリを
- *     作成する。idはサーバー側で`crypto.randomUUID()`により発行する。
+ *   - `{ productName, a8ProgramUrl }` (idを含まない): 新規トラッキングエントリを作成する。
+ *     idはサーバー側で`crypto.randomUUID()`により発行する。`a8ProgramUrl`からサーバー側で
+ *     `parseA8ProgramId`により`a8ProgramId`を抽出して保存する(ネットワークアクセスは行わない)。
  *   - `{ id, status }`: 既存エントリのステータス更新のみ("applying"→"approved"の一方向遷移を想定するが、
  *     厳密な状態遷移バリデーションは行わない)。
  *
  * 【重要】提携申請が実際に受理されたかどうかはユーザー本人がA8.netにログインしないと分からないため、
  * statusの更新はここでは検知せず、ユーザーがadmin管理ページ上で手動で切り替える(A8.netへの自動ログイン・
- * 自動検索・自動提携申請は一切行わない)。
+ * 自動検索・自動提携申請は一切行わない)。a8ProgramUrl自体もA8.netのログイン後管理画面内のページのため
+ * サーバー側からfetchすることはできない・しない(URL文字列のパースのみ)。
  *
  * `admin/functions/api/products.ts`と同じsha楽観ロックパターンでGitHub Contents API経由でコミットする。
  */
 import type { Env, ApplicationTrackingEntry } from "../_lib/types";
 import { getSessionFromRequest } from "../_lib/session";
 import { validateApplicationTrackingInput } from "../_lib/validate";
+import { parseA8ProgramId } from "../_lib/a8ProgramUrl";
 import { getFileContent, putFileContent, GitHubApiError } from "../_lib/github";
 
 const TRACKING_PATH = "data/affiliate-application-tracking.json";
@@ -99,16 +102,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     updatedEntries[index] = resultEntry;
   } else {
     const now = new Date().toISOString();
-    // officialUrlは任意項目("known_brand"ヒントはofficialUrlGuessが無くても成立するため)。
-    // 未指定/null/空文字列はnullに正規化して統一する(空文字列のまま保存しない)。
-    const officialUrl =
-      typeof input.officialUrl === "string" && input.officialUrl.length > 0 ? input.officialUrl : null;
+    const a8ProgramUrl = input.a8ProgramUrl as string;
     resultEntry = {
       id: crypto.randomUUID(),
       productName: input.productName as string,
-      officialUrl,
-      a8NetHint: input.a8NetHint as ApplicationTrackingEntry["a8NetHint"],
-      status: input.status as ApplicationTrackingEntry["status"],
+      a8ProgramId: parseA8ProgramId(a8ProgramUrl),
+      a8ProgramUrl,
+      status: "applying",
       createdAt: now,
       updatedAt: now,
     };

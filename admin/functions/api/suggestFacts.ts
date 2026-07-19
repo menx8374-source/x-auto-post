@@ -6,8 +6,8 @@
  * あくまで「提案」であり、ユーザーが確認・編集して保存するまで確定させない
  * (このエンドポイント自体は`data/affiliate-products.json`を一切更新しない)。
  *
- * 【SSRF対策】この取得先URL(officialUrl)は外部から辿ってきた値(候補ヒントの
- * officialUrlGuessや管理者が任意に入力したURL)であり、信頼できない。
+ * 【SSRF対策】この取得先URL(officialUrl)は外部から辿ってきた値(管理者が任意に
+ * 入力したURL等)であり、信頼できない。
  * - スキームはhttp/https以外拒否(isHttpUrl)。
  * - 明らかにローカル/内部向けと分かるホスト名を拒否(isSafeExternalUrl)。
  * - レスポンスボディサイズに上限を設ける(readTextWithLimit)。
@@ -89,7 +89,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     // SSRF対策(追加検証): officialUrl自体は`isSafeExternalUrl`を通過していても、
     // `redirect: "follow"`はリダイレクト先のホストを一切検証しないため、外部から辿ってきた
-    // officialUrl(候補ヒントのofficialUrlGuess等)が302等で内部/ブロック対象ホストへ誘導する
+    // officialUrl(管理者が任意に入力したURL等)が302等で内部/ブロック対象ホストへ誘導する
     // レスポンスを返すだけでSSRFガードが無意味化する。`res.url`(最終的に到達したURL)を
     // 必ず再検証し、安全でない場合はボディを一切読まずに拒否する(読んでから捨てても
     // 既に内部ネットワークへの到達自体は発生してしまっているため、最低限ボディの内容が

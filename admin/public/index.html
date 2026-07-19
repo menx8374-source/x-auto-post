@@ -96,6 +96,28 @@
   </form>
 </template>
 
+<template id="tpl-tracking-form">
+  <form id="tracking-form" class="card tracking-form">
+    <h2>A8.netプログラム詳細ページURLから申請を記録</h2>
+    <p class="hint-note">A8.netの検索結果からプログラム詳細ページを開き、そのURLをコピーして貼り付けてください。</p>
+    <p id="tracking-form-error" class="form-error" hidden></p>
+
+    <label>
+      商品名 <span class="required">*</span>
+      <input type="text" name="productName" placeholder="商品・サービス名">
+    </label>
+
+    <label>
+      A8.netプログラム詳細ページURL <span class="required">*</span>
+      <input type="url" name="a8ProgramUrl" placeholder="https://media-console.a8.net/program/detail-not-partnered?programId=...">
+    </label>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">申請中として登録</button>
+    </div>
+  </form>
+</template>
+
 <script src="app.js" type="module"></script>
 </body>
 </html>

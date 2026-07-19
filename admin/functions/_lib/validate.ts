@@ -5,7 +5,8 @@
  * `src/ogpImage.ts`(isHttpUrl)・`src/generateAffiliateRedirects.ts`(SAFE_PRODUCT_ID)と
  * 同じロジックをここで独立して再実装する(import不可のため)。
  */
-import type { AffiliateProduct, A8NetHint, ApplicationTrackingEntry } from "./types";
+import type { AffiliateProduct, ApplicationTrackingEntry } from "./types";
+import { isA8ProgramDetailUrl } from "./a8ProgramUrl";
 
 /** http:/https:のURLのみ許可する(javascript:等の不正スキームを拒否) */
 export function isHttpUrl(url: string): boolean {
@@ -105,16 +106,6 @@ export function toAffiliateProduct(input: Record<string, unknown>): AffiliatePro
   return product;
 }
 
-/** `A8NetHint`(src/generateCandidateHints.tsのA8NetHint型と同じ形)として妥当な形式かを検証する */
-export function isValidA8NetHint(input: unknown): input is A8NetHint {
-  if (typeof input !== "object" || input === null) return false;
-  const hint = input as Record<string, unknown>;
-  if (hint.type === "known_brand") {
-    return typeof hint.a8AdvertiserId === "string" && hint.a8AdvertiserId.length > 0;
-  }
-  return hint.type === "site_link_found" || hint.type === "unknown";
-}
-
 /** 提携申請ステータスとして許可する値のみを受け付ける("applying"→"approved"の一方向遷移を想定) */
 export function isValidTrackingStatus(input: unknown): input is ApplicationTrackingEntry["status"] {
   return input === "applying" || input === "approved";
@@ -123,7 +114,7 @@ export function isValidTrackingStatus(input: unknown): input is ApplicationTrack
 /**
  * `/api/applicationTracking` POSTのリクエストボディを検証する。
  * `id`が含まれる場合は既存エントリのステータス更新のみ({id, status})、含まれない場合は
- * 新規追加({productName, officialUrl, a8NetHint, status})として扱う。
+ * 新規追加({productName, a8ProgramUrl})として扱う。
  */
 export function validateApplicationTrackingInput(
   input: unknown
@@ -145,19 +136,10 @@ export function validateApplicationTrackingInput(
   if (typeof body.productName !== "string" || body.productName.trim().length === 0) {
     errors.push("productNameは必須の文字列です");
   }
-  // officialUrlは任意項目として扱う("known_brand"ヒントは商品名のみでのブランド一致で成立し、
-  // officialUrlGuessが無い場合もあるため)。値が指定されている場合のみhttp:/https:を検証する。
-  // 未指定/null/空文字列はofficialUrl不明のまま記録できる(空文字列はnullと同じ扱いにする)。
-  if (body.officialUrl !== undefined && body.officialUrl !== null && body.officialUrl !== "") {
-    if (typeof body.officialUrl !== "string" || !isHttpUrl(body.officialUrl)) {
-      errors.push("officialUrlを指定する場合はhttp:またはhttps:のURLである必要があります");
-    }
-  }
-  if (!isValidA8NetHint(body.a8NetHint)) {
-    errors.push("a8NetHintの形式が不正です");
-  }
-  if (!isValidTrackingStatus(body.status)) {
-    errors.push('statusは"applying"または"approved"である必要があります');
+  if (typeof body.a8ProgramUrl !== "string" || body.a8ProgramUrl.length === 0) {
+    errors.push("a8ProgramUrlは必須の文字列です");
+  } else if (!isA8ProgramDetailUrl(body.a8ProgramUrl)) {
+    errors.push("a8ProgramUrlはA8.netのプログラム詳細ページURL(a8.netドメイン)である必要があります");
   }
   return { valid: errors.length === 0, errors, mode: "create" };
 }

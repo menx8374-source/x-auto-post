@@ -4,8 +4,7 @@
  * Cloudflare WorkersのfetchはNode.jsサーバーとは異なりCloudflareのエッジネットワーク経由で
  * DNS解決・接続されるため、Node版(`src/ogpImage.ts`)のようなカスタムDNS pinningは
  * 実装できない/不要。ただし、明白に内部向けなホスト名文字列の入力は多層防御として弾く
- * (`/api/suggestFacts`が外部から辿ってきたURL(候補ヒントのofficialUrlGuessや管理者の任意入力)を
- * `fetch()`する前に必ず通すこと)。
+ * (`/api/suggestFacts`が外部から辿ってきたURL(管理者の任意入力等)を`fetch()`する前に必ず通すこと)。
  */
 import { isHttpUrl } from "./validate";
 

@@ -14,6 +14,9 @@ const ENV: Env = {
   SESSION_SECRET: "test-session-secret",
 };
 
+const SAMPLE_PROGRAM_URL =
+  "https://media-console.a8.net/program/detail-not-partnered?programId=s00000024524003&fromSearch=true";
+
 function utf8ToBase64(text: string): string {
   return Buffer.from(text, "utf-8").toString("base64");
 }
@@ -37,7 +40,7 @@ test("onRequestPostは未認証(Cookie無し)の場合401を返す", async () =>
   const request = new Request("https://admin.example.com/api/applicationTracking", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ productName: "テスト商品", officialUrl: "https://example.com", a8NetHint: { type: "unknown" }, status: "applying" }),
+    body: JSON.stringify({ productName: "テスト商品", a8ProgramUrl: SAMPLE_PROGRAM_URL }),
   });
   const res = await onRequestPost({ request, env: ENV } as any);
   assert.equal(res.status, 401);
@@ -75,34 +78,33 @@ test("onRequestGetはファイル未作成(404)の場合、空配列を返す", 
 });
 
 test("onRequestPostはproductName未指定(新規作成)の場合400を返す", async () => {
-  const request = await authedRequest("POST", { officialUrl: "https://example.com", a8NetHint: { type: "unknown" }, status: "applying" });
+  const request = await authedRequest("POST", { a8ProgramUrl: SAMPLE_PROGRAM_URL });
   const res = await onRequestPost({ request, env: ENV } as any);
   assert.equal(res.status, 400);
 });
 
-test("onRequestPostはofficialUrlが不正スキームの場合400を返す", async () => {
+test("onRequestPostはa8ProgramUrlが未指定の場合400を返す", async () => {
+  const request = await authedRequest("POST", { productName: "テスト商品" });
+  const res = await onRequestPost({ request, env: ENV } as any);
+  assert.equal(res.status, 400);
+});
+
+test("onRequestPostはa8ProgramUrlがa8.net以外のドメインの場合400を返す", async () => {
   const request = await authedRequest("POST", {
     productName: "テスト商品",
-    officialUrl: "javascript:alert(1)",
-    a8NetHint: { type: "unknown" },
-    status: "applying",
+    a8ProgramUrl: "https://example.com/program/detail?programId=s1",
   });
   const res = await onRequestPost({ request, env: ENV } as any);
   assert.equal(res.status, 400);
 });
 
-test("onRequestPostはstatusが不正な値の場合400を返す", async () => {
-  const request = await authedRequest("POST", {
-    productName: "テスト商品",
-    officialUrl: "https://example.com",
-    a8NetHint: { type: "unknown" },
-    status: "rejected",
-  });
+test("onRequestPostはstatusが不正な値(更新)の場合400を返す", async () => {
+  const request = await authedRequest("POST", { id: "entry-1", status: "rejected" });
   const res = await onRequestPost({ request, env: ENV } as any);
   assert.equal(res.status, 400);
 });
 
-test("onRequestPostは新規作成: idをサーバー側で発行し、既存配列に追記してGitHubへコミットする", async () => {
+test("onRequestPostは新規作成: idをサーバー側で発行し、a8ProgramIdを抽出して既存配列に追記しGitHubへコミットする", async () => {
   const original = globalThis.fetch;
   let putBody: any = null;
   globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
@@ -120,64 +122,62 @@ test("onRequestPostは新規作成: idをサーバー側で発行し、既存配
   try {
     const request = await authedRequest("POST", {
       productName: "SuperAI Tool",
-      officialUrl: "https://superai.example.com",
-      a8NetHint: { type: "site_link_found" },
-      status: "applying",
+      a8ProgramUrl: SAMPLE_PROGRAM_URL,
     });
     const res = await onRequestPost({ request, env: ENV } as any);
     assert.equal(res.status, 200);
-    const data = (await res.json()) as { ok?: boolean; entry?: { id?: string; status?: string } };
+    const data = (await res.json()) as {
+      ok?: boolean;
+      entry?: { id?: string; status?: string; a8ProgramId?: string | null; a8ProgramUrl?: string | null };
+    };
     assert.equal(data.ok, true);
     assert.ok(data.entry?.id);
     assert.equal(data.entry?.status, "applying");
+    assert.equal(data.entry?.a8ProgramId, "s00000024524003");
+    assert.equal(data.entry?.a8ProgramUrl, SAMPLE_PROGRAM_URL);
 
     const committed = JSON.parse(Buffer.from(putBody.content, "base64").toString("utf-8"));
     assert.equal(committed.length, 1);
     assert.equal(committed[0].productName, "SuperAI Tool");
+    assert.equal(committed[0].a8ProgramId, "s00000024524003");
     assert.equal(putBody.sha, "old-sha");
   } finally {
     globalThis.fetch = original;
   }
 });
 
-test(
-  "onRequestPostは新規作成: officialUrlGuessが無いknown_brand候補(officialUrl未指定/null)でも" +
-    "200で作成できる(/code-review CONFIRMED回帰テスト。officialUrlをnullに正規化して保存する)",
-  async () => {
-    const original = globalThis.fetch;
-    let putBody: any = null;
-    globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
-      const url = input.toString();
-      if (init?.method === "PUT") {
-        putBody = JSON.parse((init.body as string) || "{}");
-        return new Response(JSON.stringify({ content: { sha: "new-sha" } }), { status: 200 });
-      }
-      if (url.includes("/contents/")) {
-        return new Response(JSON.stringify({ content: utf8ToBase64("[]"), sha: "old-sha" }), { status: 200 });
-      }
-      throw new Error(`unexpected fetch to ${url}`);
-    }) as typeof fetch;
-
-    try {
-      const request = await authedRequest("POST", {
-        productName: "楽天市場",
-        officialUrl: null,
-        a8NetHint: { type: "known_brand", a8AdvertiserId: "s00000011623" },
-        status: "applying",
-      });
-      const res = await onRequestPost({ request, env: ENV } as any);
-      assert.equal(res.status, 200);
-      const data = (await res.json()) as { ok?: boolean; entry?: { officialUrl?: unknown } };
-      assert.equal(data.ok, true);
-      assert.equal(data.entry?.officialUrl, null);
-
-      const committed = JSON.parse(Buffer.from(putBody.content, "base64").toString("utf-8"));
-      assert.equal(committed[0].officialUrl, null);
-    } finally {
-      globalThis.fetch = original;
+test("onRequestPostは新規作成: a8ProgramUrlにprogramIdが含まれない場合、a8ProgramIdをnullとして保存する", async () => {
+  const original = globalThis.fetch;
+  let putBody: any = null;
+  globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
+    const url = input.toString();
+    if (init?.method === "PUT") {
+      putBody = JSON.parse((init.body as string) || "{}");
+      return new Response(JSON.stringify({ content: { sha: "new-sha" } }), { status: 200 });
     }
+    if (url.includes("/contents/")) {
+      return new Response(JSON.stringify({ content: utf8ToBase64("[]"), sha: "old-sha" }), { status: 200 });
+    }
+    throw new Error(`unexpected fetch to ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const request = await authedRequest("POST", {
+      productName: "楽天市場",
+      a8ProgramUrl: "https://www.a8.net/",
+    });
+    const res = await onRequestPost({ request, env: ENV } as any);
+    assert.equal(res.status, 200);
+    const data = (await res.json()) as { ok?: boolean; entry?: { a8ProgramId?: string | null } };
+    assert.equal(data.ok, true);
+    assert.equal(data.entry?.a8ProgramId, null);
+
+    const committed = JSON.parse(Buffer.from(putBody.content, "base64").toString("utf-8"));
+    assert.equal(committed[0].a8ProgramId, null);
+  } finally {
+    globalThis.fetch = original;
   }
-);
+});
 
 test("onRequestPostは既存エントリのステータス更新({id, status})を正しく反映する", async () => {
   const original = globalThis.fetch;
@@ -186,8 +186,8 @@ test("onRequestPostは既存エントリのステータス更新({id, status})�
     {
       id: "entry-1",
       productName: "SuperAI Tool",
-      officialUrl: "https://superai.example.com",
-      a8NetHint: { type: "site_link_found" },
+      a8ProgramId: "s00000024524003",
+      a8ProgramUrl: SAMPLE_PROGRAM_URL,
       status: "applying",
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -258,9 +258,7 @@ test("onRequestPostはGitHub API競合(409)の場合、409を返す", async () =
   try {
     const request = await authedRequest("POST", {
       productName: "テスト商品",
-      officialUrl: "https://example.com",
-      a8NetHint: { type: "unknown" },
-      status: "applying",
+      a8ProgramUrl: SAMPLE_PROGRAM_URL,
     });
     const res = await onRequestPost({ request, env: ENV } as any);
     assert.equal(res.status, 409);

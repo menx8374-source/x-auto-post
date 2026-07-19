@@ -2,7 +2,7 @@
 
 X自動投稿バックエンド(`../src`)とは独立したサブプロジェクト。スマホから本人のみ
 アクセスできる、アフィリエイト商品(`data/affiliate-products.json`)の追加・編集・
-有効/無効切り替えと、参考情報(候補ヒント)閲覧のための管理ページ。
+有効/無効切り替えと、A8.net提携申請の進捗管理のための管理ページ。
 
 - 実行環境: Cloudflare Pages + Pages Functions(Workers runtime)
 - フロントエンド: フレームワーク不要の素のHTML/CSS/JS(`public/`、ビルドステップなし)
@@ -23,9 +23,9 @@ admin/
       auth/callback.ts    # OAuthコールバック(state検証→トークン交換→ログイン名検証→セッション発行)
       auth/logout.ts      # セッションCookie削除
       products.ts          # GET: 商品一覧取得 / POST: 商品追加・更新
-      candidates.ts         # GET: 候補ヒント(参考情報)取得
       suggestFacts.ts        # POST: 公式サイトURLからfacts候補を提案(Anthropic API呼び出し)
       resolveAffiliateLink.ts  # POST: アフィリエイトリンク1つからofficialUrl/商品名/画像/factsを自動解決
+      applicationTracking.ts   # GET/POST: A8.net提携申請の進捗(申請中/提携済み)を記録・更新
     _lib/
       github.ts            # GitHub REST API呼び出しの共通ヘルパー
       session.ts             # 署名付きセッションCookieのsign/verify(Web Crypto API)
@@ -35,7 +35,8 @@ admin/
       fetchLimited.ts           # fetch応答をサイズ上限つきで読み取る
       factsPrompt.ts             # facts提案プロンプト構築・レスポンス解析の純粋関数
       ogpMeta.ts               # HTMLからOGPメタデータ(og:title/og:image)を抽出する純粋関数
-      types.ts                # Env / AffiliateProduct型定義
+      a8ProgramUrl.ts            # A8.netプログラム詳細ページURLのprogramId抽出・ドメイン検証の純粋関数
+      types.ts                # Env / AffiliateProduct / ApplicationTrackingEntry型定義
   public/                    # 配信される静的ファイル(素のHTML/CSS/JS)
   test/                      # node:testによるユニットテスト
 ```

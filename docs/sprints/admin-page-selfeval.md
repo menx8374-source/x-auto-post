@@ -518,5 +518,60 @@ npm test
 - `admin/test/applicationTracking.test.ts`(1件追加、計12件): officialUrlGuess無しのknown_brand候補(`officialUrl: null`)でも200で作成でき、`officialUrl`が`null`として保存されること(直接の回帰テスト)。
 - `admin/test/validate.test.ts`(1件追加、計10件): `officialUrl`が未指定/null/空文字列いずれの場合も、`known_brand`ヒントの新規作成リクエストを受理すること。
 
+---
+
+## 方針転換(2026-07-19): 候補ヒント機能を完全削除し、カテゴリ検索+A8.netプログラムURL貼り付け方式に置き換え
+
+ユーザーの方針転換依頼への対応。AIニュースから商品候補を自動検出する「候補ヒント」機能一式を完全削除し、よりシンプルな2機能に置き換えた。
+
+### 削除した内容
+- `src/generateCandidateHints.ts`・`test/generateCandidateHints.test.ts`
+- `src/a8NetHint.ts`・`test/a8NetHint.test.ts`
+- `.github/workflows/update-candidate-hints.yml`
+- `data/affiliate-candidate-hints.json`(`git rm`)。`.gitignore`の該当例外行も削除。
+- `admin/functions/api/candidates.ts`
+- `admin/public/app.js`・`index.html`・`style.css`の「候補ヒント(参考情報)」セクション・関連DOM・関連関数(`renderCandidatesSection`・`renderA8NetHintBadge`・`addProductFromCandidate`・`confirmAndApplyOnA8Net`・`loadCandidates`等)
+- `package.json`の`generate:candidate-hints`スクリプト
+- `src/ogpImage.ts`の`fetchSafely`/`readTextBodyWithLimit`/`defaultFetch`/`defaultLookup`を非exportに戻した(外部利用箇所が`generateCandidateHints.ts`削除により無くなったため。他ファイルからのimportがないことをgrepで確認済み)。
+
+### 新規実装
+1. **「カテゴリからA8.netを探す」**: 固定5カテゴリ(技術系/転職系/学習系/ビジネスツール系/電子製品系)のボタン。押すと既存`buildA8SearchUrl(keyword)`でA8.net検索結果ページを新タブで開くだけ(クリップボードコピーも維持)。`admin/public/app.js`の`renderCategorySearchSection`/`openA8CategorySearch`。
+2. **A8.netプログラム詳細ページURLからの申請記録**: `admin/functions/_lib/a8ProgramUrl.ts`(新規)に純粋関数`parseA8ProgramId`(URLの`programId`クエリパラメータ抽出、ネットワークアクセスなし)・`isA8ProgramDetailUrl`(a8.netドメイン検証、http/https限定)を実装。`ApplicationTrackingEntry`型を`a8NetHint`/`officialUrl`から`a8ProgramId`/`a8ProgramUrl`に変更。`validateApplicationTrackingInput`の新規作成パスを`{productName, a8ProgramUrl}`受け取りに変更し、サーバー側で`parseA8ProgramId`を呼んで保存。フロントに「A8.netプログラム詳細ページURLから申請を記録」フォーム(商品名+URL入力)を追加。
+   - 循環import回避のため、`a8ProgramUrl.ts`は`validate.ts`の`isHttpUrl`をimportせず、同ロジックを独立定義した(`validate.ts`が`a8ProgramUrl.ts`をimportする一方向の依存関係に統一)。
+
+### 技術選定
+- 新規ライブラリ追加なし。既存パターン(純粋関数を`_lib/`に切り出しユニットテスト)を踏襲。
+
+### 受け入れ基準チェック(自己申告)
+- [x] 候補ヒント機能一式(ファイル・コード・テスト・ワークフロー)を完全削除: `git rm`+コード削除、削除対象ファイルへの参照が残っていないことをgrepで確認(`docs/project-memory.md`・本ファイルの履歴記述のみ意図的に残存)。
+- [x] `applicationTracking.ts`は削除せず仕様変更: 実施。`products.ts`/`resolveAffiliateLink.ts`/`suggestFacts.ts`/`a8Search.js`は無変更。
+- [x] 本番投稿パイプライン(`pipeline.ts`/`publish.ts`/`dryRun.ts`/`post.yml`/`post-affiliate.yml`)は無変更: git diffで対象外を確認。
+- [x] 「カテゴリからA8.netを探す」5ボタン、各キーワードで`buildA8SearchUrl`により新タブを開くのみ: `app.js`のコードで確認。
+- [x] A8.netプログラム詳細ページURLの貼り付けから`programId`を抽出し申請記録: `parseA8ProgramId`のユニットテストと`applicationTracking.ts`の統合テストで確認。ネットワークアクセスは一切発生しない(`new URL()`パースのみ、コードレビューで確認可能)。
+- [x] `isA8ProgramDetailUrl`はa8.netドメイン(サブドメイン含む)のみ許可: ユニットテストで確認。
+- [x] A8.netへの自動ログイン・自動検索・自動提携申請・スクレイピングは実装していない: コードに該当処理なし(新規2機能とも「新タブでURLを開く」「URL文字列パース」のみ)。
+- [x] シークレットのハードコードなし: 新規シークレット追加なし。
+- [x] `npm test`(ルート274件・admin158件)・`npm run typecheck`(ルート・admin両方)通過を確認。
+- [x] git commitはしていない。
+
+### アプリの起動方法(変更なし)
+```bash
+cd admin
+npm install
+npm run dev        # wrangler pages dev public --compatibility-date=2026-07-01 (既定ポート8788)
+npm run typecheck
+npm test
+```
+ルート: `npm run typecheck` / `npm test`(いずれもプロジェクトルートで実行)。
+
+### 既知の問題・懸念点
+- ブラウザでの実際のクリック操作(カテゴリボタン押下→新タブ遷移、A8.netプログラムURL貼り付けフォームの送信→一覧反映の目視確認)は未実施。ユニットテスト(純粋関数・APIハンドラ)と`node --check`による構文確認のみ実施(既存selfevalの各節と同様の制約。evaluatorでの実機検証を想定)。
+- `data/affiliate-application-tracking.json`は既に空配列(`[]`)だったため、スキーマ変更に伴うデータ移行は不要だった。
+
+### 追加したテスト
+- `admin/test/a8ProgramUrl.test.ts`(新規、8件): `parseA8ProgramId`(正常抽出・パラメータなし・空文字列・パース不能)、`isA8ProgramDetailUrl`(a8.net本体/サブドメイン許可・他ドメイン拒否・不正スキーム/パース不能拒否)。
+- `admin/test/applicationTracking.test.ts`: 新仕様(`a8ProgramUrl`/`a8ProgramId`)に合わせて全面更新。programId抽出確認・programIdなしURLでのnull保存確認を追加。
+- `admin/test/validate.test.ts`: `isValidA8NetHint`関連テストを削除し、`validateApplicationTrackingInput`の新仕様(productName/a8ProgramUrl必須、a8.netドメイン検証)テストに置き換え。
+
 ## 関連ドキュメント
 - [[x-ai-news-autopost-spec]]（製品仕様書）

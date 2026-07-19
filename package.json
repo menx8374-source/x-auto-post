@@ -14,7 +14,6 @@
     "dryrun:affiliate": "tsx src/dryRunAffiliate.ts",
     "post:affiliate": "tsx src/publishAffiliate.ts",
     "generate:affiliate-redirects": "tsx src/generateAffiliateRedirects.ts",
-    "generate:candidate-hints": "tsx src/generateCandidateHints.ts",
     "admin:delete-tweet": "tsx src/adminTweetTool.ts delete-tweet",
     "admin:test-post": "tsx src/adminTweetTool.ts test-post",
     "test": "node --import tsx --test test/**/*.test.ts",

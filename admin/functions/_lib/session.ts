@@ -157,7 +157,7 @@ export function serializeClearOAuthStateCookie(): string {
 }
 
 /**
- * リクエストのCookieからセッションを取得・検証する。`/api/products`・`/api/candidates`は
+ * リクエストのCookieからセッションを取得・検証する。認証必須の各APIエンドポイントは
  * 必ずこの関数を先頭で呼び、`null`(未認証)なら401を返してから処理を打ち切ること。
  */
 export async function getSessionFromRequest(

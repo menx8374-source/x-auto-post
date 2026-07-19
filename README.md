@@ -213,21 +213,10 @@ GitHub Actionsから手動実行する場合は[`.github/workflows/admin-tools.y
   (このリポジトリのセットアップ対象外)。
 - 商品追加時、`admin/`から自動的に `regenerate-redirects.yml`(`docs/go/`配下のリダイレクトページ再生成)
   ワークフローを起動する。
-- `npm run generate:candidate-hints`(`src/generateCandidateHints.ts`)が、既存の収集ロジック
-  (`collectAndScoreNews()`)を読み取り専用で使い、「最近話題のAI関連ニュース」の参考情報を
-  `data/affiliate-candidate-hints.json` に生成する(実際のアフィリエイト商品・リンクの自動生成はしない)。
-  `admin/`ページの「候補ヒント」欄からこの内容を閲覧できる。手動更新は
-  [`.github/workflows/update-candidate-hints.yml`](.github/workflows/update-candidate-hints.yml) から実行する
-  (実行には`ANTHROPIC_API_KEY`のRepository Secretが必要)。
-- `generate:candidate-hints`は、各ニュース項目が「特定の名前を持つ商業的なAI関連の製品・ツール・サービス」を
-  主題にしているかをClaude(Anthropic API)で分類し、該当する場合は商品候補(`productCandidate`:
-  製品名・公式URL推測のみ)を付加する。**商品の特長・スペック・効果等の事実情報はAIに生成させない**
-  (景品表示法対応の一環。`facts`は常にユーザーが公式サイトを確認して手入力する)。`ANTHROPIC_API_KEY`
-  未設定時はこの分類をスキップし、従来通りタイトル一覧のみを書き出す(エラーにはしない)。
-  `admin/`ページでは商品候補ありの項目に「商品として追加」ボタンが表示され、押すと商品追加フォームへ
-  製品名・(推測できた場合のみ)公式URLが事前入力される(IDは製品名から生成するが、日本語名の場合は
-  空欄になるため入力が必要)。`facts`・`affiliateUrl`は常に空、`enabled`は常にオフ(下書き)で開始し、
-  ユーザーが内容を確認・入力して意図的に保存するまで投稿対象にはならない。
+- `admin/`ページには「カテゴリからA8.netを探す」(技術系・転職系・学習系・ビジネスツール系・電子製品系の
+  固定キーワードでA8.netの検索結果ページを新しいタブで開くだけ)と、A8.netのプログラム詳細ページURLを
+  貼り付けて提携申請の進捗(申請中/提携済み)を記録する機能がある。いずれもA8.netへの自動ログイン・
+  自動検索・自動提携申請・スクレイピングは行わない。詳細は [`docs/admin-page-setup.md`](docs/admin-page-setup.md) を参照。
 
 ## 環境変数
 
