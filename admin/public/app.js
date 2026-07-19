@@ -563,7 +563,7 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
 
   /**
    * 「A8.netプログラム詳細ページURLから申請を記録」フォームを描画する。
-   * 送信すると POST /api/applicationTracking(新形式: {productName, a8ProgramUrl})を呼び、
+   * 送信すると POST /api/applicationTracking(新形式: {programName, a8ProgramUrl})を呼び、
    * 成功したら一覧を再読み込みする。
    */
   function renderTrackingFormSection() {
@@ -579,7 +579,7 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
     const errorEl = form.querySelector("#tracking-form-error");
     errorEl.hidden = true;
 
-    const productName = form.elements.productName.value.trim();
+    const programName = form.elements.programName.value.trim();
     const a8ProgramUrl = form.elements.a8ProgramUrl.value.trim();
 
     if (!a8ProgramUrl) {
@@ -594,7 +594,7 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
 
     const { res, data, networkError } = await fetchJSON("/api/applicationTracking", {
       method: "POST",
-      body: JSON.stringify({ productName: productName || null, a8ProgramUrl }),
+      body: JSON.stringify({ programName: programName || null, a8ProgramUrl }),
     });
 
     submitButton.disabled = false;
@@ -643,13 +643,13 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
 
   /**
    * 「商品を追加」ボタン(status:"approved"のエントリのみ): 既存の商品追加フォームを
-   * productNameのみ事前入力で開く(officialUrlは不明なので空欄のまま)。実際のアフィリエイト
+   * programNameのみ事前入力で開く(officialUrlは不明なので空欄のまま)。実際のアフィリエイト
    * リンクはユーザーがA8.netで作成後に貼り付ける(このボタン自体はリンクを生成・自動入力しない)。
    */
   function openFormFromTrackingEntry(entry) {
     openForm(null, {
-      id: slugifyProductName(entry.productName),
-      name: entry.productName,
+      id: slugifyProductName(entry.programName),
+      name: entry.programName,
     });
   }
 
@@ -711,7 +711,7 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
       list.appendChild(
         el("li", { class: "tracking-item" }, [
           el("div", { class: "tracking-item-header" }, [
-            el("span", { class: "product-name", text: entry.productName || "商品名: 不明" }),
+            el("span", { class: "product-name", text: entry.programName || "プログラム名: 不明" }),
             el("span", { class: trackingStatusBadgeClass(entry.status), text: trackingStatusLabel(entry.status) }),
           ]),
           ...metaChildren,

@@ -114,7 +114,7 @@ export function isValidTrackingStatus(input: unknown): input is ApplicationTrack
 /**
  * `/api/applicationTracking` POSTのリクエストボディを検証する。
  * `id`が含まれる場合は既存エントリのステータス更新のみ({id, status})、含まれない場合は
- * 新規追加({productName, a8ProgramUrl})として扱う。
+ * 新規追加({programName, a8ProgramUrl})として扱う。
  */
 export function validateApplicationTrackingInput(
   input: unknown
@@ -133,12 +133,12 @@ export function validateApplicationTrackingInput(
   }
 
   const errors: string[] = [];
-  // productNameは任意項目として扱う(A8.netのプログラム詳細ページはログイン後の管理画面内のため
-  // サーバー側から商品名を自動取得できず、ユーザーが分かる場合のみ手入力する運用のため)。
+  // programNameは任意項目として扱う(A8.netのプログラム詳細ページはログイン後の管理画面内のため
+  // サーバー側からプログラム名を自動取得できず、ユーザーが分かる場合のみ手入力する運用のため)。
   // 指定する場合のみ、空文字列でない文字列であることを検証する。
-  if (body.productName !== undefined && body.productName !== null) {
-    if (typeof body.productName !== "string" || body.productName.trim().length === 0) {
-      errors.push("productNameを指定する場合は空でない文字列である必要があります");
+  if (body.programName !== undefined && body.programName !== null) {
+    if (typeof body.programName !== "string" || body.programName.trim().length === 0) {
+      errors.push("programNameを指定する場合は空でない文字列である必要があります");
     }
   }
   if (typeof body.a8ProgramUrl !== "string" || body.a8ProgramUrl.length === 0) {

@@ -2,9 +2,12 @@
  * GET  /api/applicationTracking : 認証必須。data/affiliate-application-tracking.json の内容を
  *                                  GitHub Contents API経由で取得して返す。
  * POST /api/applicationTracking : 認証必須。
- *   - `{ productName, a8ProgramUrl }` (idを含まない): 新規トラッキングエントリを作成する。
+ *   - `{ programName, a8ProgramUrl }` (idを含まない): 新規トラッキングエントリを作成する。
  *     idはサーバー側で`crypto.randomUUID()`により発行する。`a8ProgramUrl`からサーバー側で
  *     `parseA8ProgramId`により`a8ProgramId`を抽出して保存する(ネットワークアクセスは行わない)。
+ *     `programName`が未指定の場合、既知の主要ブランドprogramId一覧(`knownA8Programs.ts`、
+ *     ハードコードされた静的配列の参照のみでネットワークアクセスは行わない)と一致すれば
+ *     自動的にプログラム名を補完する。
  *   - `{ id, status }`: 既存エントリのステータス更新のみ("applying"→"approved"の一方向遷移を想定するが、
  *     厳密な状態遷移バリデーションは行わない)。
  *
@@ -19,6 +22,7 @@ import type { Env, ApplicationTrackingEntry } from "../_lib/types";
 import { getSessionFromRequest } from "../_lib/session";
 import { validateApplicationTrackingInput } from "../_lib/validate";
 import { parseA8ProgramId } from "../_lib/a8ProgramUrl";
+import { lookupKnownProgramName } from "../_lib/knownA8Programs";
 import { getFileContent, putFileContent, GitHubApiError } from "../_lib/github";
 
 const TRACKING_PATH = "data/affiliate-application-tracking.json";
@@ -103,15 +107,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   } else {
     const now = new Date().toISOString();
     const a8ProgramUrl = input.a8ProgramUrl as string;
-    const rawProductName = input.productName;
-    const productName =
-      typeof rawProductName === "string" && rawProductName.trim().length > 0
-        ? rawProductName.trim()
-        : null;
+    const a8ProgramId = parseA8ProgramId(a8ProgramUrl);
+    const rawProgramName = input.programName;
+    // 優先順位: (1)ユーザー入力を尊重(上書きしない) → (2)既知の主要ブランドprogramIdと一致すれば自動補完 → (3)null
+    const programName =
+      typeof rawProgramName === "string" && rawProgramName.trim().length > 0
+        ? rawProgramName.trim()
+        : lookupKnownProgramName(a8ProgramId);
     resultEntry = {
       id: crypto.randomUUID(),
-      productName,
-      a8ProgramId: parseA8ProgramId(a8ProgramUrl),
+      programName,
+      a8ProgramId,
       a8ProgramUrl,
       status: "applying",
       createdAt: now,

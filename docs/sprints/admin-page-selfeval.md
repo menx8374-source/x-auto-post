@@ -573,5 +573,57 @@ npm test
 - `admin/test/applicationTracking.test.ts`: 新仕様(`a8ProgramUrl`/`a8ProgramId`)に合わせて全面更新。programId抽出確認・programIdなしURLでのnull保存確認を追加。
 - `admin/test/validate.test.ts`: `isValidA8NetHint`関連テストを削除し、`validateApplicationTrackingInput`の新仕様(productName/a8ProgramUrl必須、a8.netドメイン検証)テストに置き換え。
 
+---
+
+## フィールドリネーム(2026-07-19): `productName`→`programName`(A8.net用語統一)+既知主要ブランドprogramIdからの自動入力
+
+ユーザー指示「商品名ではなくプログラム名にして」への対応。
+
+### 実装した内容
+- `ApplicationTrackingEntry.productName`→`programName`にリネーム(`admin/functions/_lib/types.ts`)。
+- `validateApplicationTrackingInput`のフィールド名・エラーメッセージを`programName`に更新(`admin/functions/_lib/validate.ts`)。
+- `admin/functions/api/applicationTracking.ts`: リクエストボディの読み取り・保存ロジックを`programName`に更新。
+- `admin/public/app.js`・`index.html`: フォームの`name="programName"`・表示ラベル「プログラム名(任意)」・`entry.programName`参照に更新(AffiliateProduct.nameを指す「商品名」欄はそのまま、対象外)。
+- `admin/test/applicationTracking.test.ts`・`admin/test/validate.test.ts`: フィールド名・アサーションを更新。
+- `data/affiliate-application-tracking.json`: 既存1件(本番データ)の`productName`キーを`programName`に直接リネーム(値は無変更)。後方互換の読み替えロジックは実装していない(このファイルを直接書き換えたため)。
+- `admin/functions/_lib/knownA8Programs.ts`(新規): A8.net公式公開ページ(support.a8.net/as/HintOfProgram/selection.php、ログイン不要)掲載の主要ブランド5件(楽天市場・Amazon・アイリスプラザ・Qoo10・ダイレクトテレショップ)のprogramId→programName静的対応表(ハードコード配列、fetchなし)。`lookupKnownProgramName(programId)`を提供。
+- `admin/functions/api/applicationTracking.ts`のPOST(新規作成): `programName`の決定を(1)リクエストボディで明示指定(空でない文字列)があればそれを優先 → (2)未指定なら`lookupKnownProgramName(parseA8ProgramId(a8ProgramUrl))`で既知ブランドと一致すれば自動補完 → (3)いずれも無ければ`null`、の優先順位で実装。
+
+### 技術選定
+- 新規ライブラリ追加なし。既存のハードコード静的配列パターン(過去の`KNOWN_A8_ADVERTISERS`と同様)を踏襲。
+
+### 受け入れ基準チェック(自己申告)
+- [x] `productName`関連識別子・UI表示を全面的に`programName`/「プログラム名」へリネーム: 対象6ファイル+ドキュメント2件を確認。
+- [x] 既存本番データの移行: `data/affiliate-application-tracking.json`の`productName`キーを`programName`に直接リネーム(値そのまま)。
+- [x] `knownA8Programs.ts`新規追加、ネットワークアクセスなし(静的配列参照のみ): コードレビューで確認可能(fetch呼び出し無し)。
+- [x] POST新規作成時の優先順位(ユーザー入力→既知programId一致→null)実装: `applicationTracking.ts`で実装、テストで確認。
+- [x] `admin/test/knownA8Programs.test.ts`(新規、4件)・`applicationTracking.test.ts`への自動補完/優先テスト追加(2件)。
+- [x] 本番投稿パイプラインは無変更: 変更ファイルは`admin/`・`data/`・`docs/`のみ。
+- [x] シークレットのハードコードなし。
+- [x] admin: `npm run typecheck` OK、`npm test` 165件全パス(新規: `knownA8Programs.test.ts`4件、`applicationTracking.test.ts`2件追加)。
+- [x] ルート: `npm run typecheck` OK、`npm test` 274件全パス(影響なし)。
+- [x] git commitはしていない。
+
+### アプリの起動方法(変更なし)
+```bash
+cd admin
+npm install
+npm run dev        # wrangler pages dev public --compatibility-date=2026-07-01 (既定ポート8788)
+npm run typecheck
+npm test
+```
+ルート: `npm run typecheck` / `npm test`(いずれもプロジェクトルートで実行)。
+
+### 既知の問題・懸念点
+- ブラウザでの実際の表示確認(フォームラベル「プログラム名」・一覧の「プログラム名: 不明」表示)は未実施。ユニットテスト・`tsc --noEmit`のみで確認(evaluatorでの実機検証を想定)。
+- サーバー起動は今回不要だったため起動していない。
+- `docs/sprints/admin-page-selfeval.md`内の過去の節(本セクションより前)は当時の実装時点での正しい記述(`productName`)のまま残しており、本セクションのみ最新のフィールド名を反映している(履歴の改変を避けるため)。
+
+### 追加したテスト
+- `admin/test/knownA8Programs.test.ts`(新規、4件): `lookupKnownProgramName`(一致する場合2件・一致しない場合・programIdがnullの場合)、`KNOWN_A8_PROGRAMS`の構造検証。
+- `admin/test/applicationTracking.test.ts`(2件追加): 既知programId一致時の自動`programName`補完、ユーザー入力がある場合は既知プログラム名で上書きしないこと。
+
+---
+
 ## 関連ドキュメント
 - [[x-ai-news-autopost-spec]]（製品仕様書）
