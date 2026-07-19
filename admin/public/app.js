@@ -635,11 +635,15 @@ import { resolveProductId } from "./productId.js";
     return status === "approved" ? "badge badge-tracking-approved" : "badge badge-tracking-applying";
   }
 
-  /** 「提携済みにする」ボタン: POST /api/applicationTrackingで{id, status:"approved"}に更新する */
-  async function markTrackingApproved(entry) {
+  /**
+   * 「提携済みにする」「申請中に戻す」共通処理: POST /api/applicationTrackingで
+   * {id, status}に更新する。「提携済みにする」を間違えて押した場合等、
+   * approved→applyingへ戻す操作も同じエンドポイントで行える(一方向に固定していない)。
+   */
+  async function updateTrackingStatus(entry, status) {
     const { res, data, networkError } = await fetchJSON("/api/applicationTracking", {
       method: "POST",
-      body: JSON.stringify({ id: entry.id, status: "approved" }),
+      body: JSON.stringify({ id: entry.id, status }),
     });
     if (networkError) {
       window.alert(`通信エラーが発生しました: ${networkError}`);
@@ -688,7 +692,7 @@ import { resolveProductId } from "./productId.js";
         actions.push(
           el(
             "button",
-            { class: "btn btn-secondary", type: "button", onclick: () => markTrackingApproved(entry) },
+            { class: "btn btn-secondary", type: "button", onclick: () => updateTrackingStatus(entry, "approved") },
             ["提携済みにする"]
           )
         );
@@ -698,6 +702,15 @@ import { resolveProductId } from "./productId.js";
             "button",
             { class: "btn btn-primary", type: "button", onclick: () => openFormFromTrackingEntry(entry) },
             ["商品を追加"]
+          )
+        );
+        // 「提携済みにする」を間違えて押した場合等に、申請中へ戻せるようにする(ステータスは
+        // 一方向に固定していない)。
+        actions.push(
+          el(
+            "button",
+            { class: "btn btn-ghost", type: "button", onclick: () => updateTrackingStatus(entry, "applying") },
+            ["申請中に戻す"]
           )
         );
       }

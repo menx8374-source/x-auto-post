@@ -106,7 +106,7 @@ export function toAffiliateProduct(input: Record<string, unknown>): AffiliatePro
   return product;
 }
 
-/** 提携申請ステータスとして許可する値のみを受け付ける("applying"→"approved"の一方向遷移を想定) */
+/** 提携申請ステータスとして許可する値のみを受け付ける(誤操作の訂正のためapproved→applyingへ戻すことも許可、方向は制限しない) */
 export function isValidTrackingStatus(input: unknown): input is ApplicationTrackingEntry["status"] {
   return input === "applying" || input === "approved";
 }
