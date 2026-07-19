@@ -77,8 +77,38 @@ test("onRequestGetはファイル未作成(404)の場合、空配列を返す", 
   }
 });
 
-test("onRequestPostはproductName未指定(新規作成)の場合400を返す", async () => {
-  const request = await authedRequest("POST", { a8ProgramUrl: SAMPLE_PROGRAM_URL });
+test("onRequestPostはproductName未指定(新規作成)でもnullとして保存し成功する", async () => {
+  const original = globalThis.fetch;
+  let putBody: any = null;
+  globalThis.fetch = (async (input: string | URL, init?: RequestInit) => {
+    const url = input.toString();
+    if (init?.method === "PUT") {
+      putBody = JSON.parse((init.body as string) || "{}");
+      return new Response(JSON.stringify({ content: { sha: "new-sha" } }), { status: 200 });
+    }
+    if (url.includes("/contents/")) {
+      return new Response(JSON.stringify({ content: utf8ToBase64("[]"), sha: "old-sha" }), { status: 200 });
+    }
+    throw new Error(`unexpected fetch to ${url}`);
+  }) as typeof fetch;
+
+  try {
+    const request = await authedRequest("POST", { a8ProgramUrl: SAMPLE_PROGRAM_URL });
+    const res = await onRequestPost({ request, env: ENV } as any);
+    assert.equal(res.status, 200);
+    const data = (await res.json()) as { ok?: boolean; entry?: { productName?: string | null } };
+    assert.equal(data.ok, true);
+    assert.equal(data.entry?.productName, null);
+
+    const committed = JSON.parse(Buffer.from(putBody.content, "base64").toString("utf-8"));
+    assert.equal(committed[0].productName, null);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("onRequestPostはproductNameが空文字列/空白のみ(新規作成)の場合400を返す", async () => {
+  const request = await authedRequest("POST", { productName: "   ", a8ProgramUrl: SAMPLE_PROGRAM_URL });
   const res = await onRequestPost({ request, env: ENV } as any);
   assert.equal(res.status, 400);
 });

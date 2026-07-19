@@ -103,9 +103,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   } else {
     const now = new Date().toISOString();
     const a8ProgramUrl = input.a8ProgramUrl as string;
+    const rawProductName = input.productName;
+    const productName =
+      typeof rawProductName === "string" && rawProductName.trim().length > 0
+        ? rawProductName.trim()
+        : null;
     resultEntry = {
       id: crypto.randomUUID(),
-      productName: input.productName as string,
+      productName,
       a8ProgramId: parseA8ProgramId(a8ProgramUrl),
       a8ProgramUrl,
       status: "applying",

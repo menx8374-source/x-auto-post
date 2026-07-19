@@ -60,7 +60,8 @@ export interface AffiliateProduct {
  */
 export interface ApplicationTrackingEntry {
   id: string;
-  productName: string;
+  /** A8.netのプログラム詳細ページから自動取得できないため、ユーザーが分かる場合のみ手入力する任意項目 */
+  productName: string | null;
   /** A8.netのプログラム詳細ページURLの`programId`クエリパラメータの値。抽出できなかった場合はnull */
   a8ProgramId: string | null;
   /** ユーザーが貼り付けたA8.netのプログラム詳細ページURLそのもの */

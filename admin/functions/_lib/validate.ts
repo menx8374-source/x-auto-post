@@ -133,8 +133,13 @@ export function validateApplicationTrackingInput(
   }
 
   const errors: string[] = [];
-  if (typeof body.productName !== "string" || body.productName.trim().length === 0) {
-    errors.push("productNameは必須の文字列です");
+  // productNameは任意項目として扱う(A8.netのプログラム詳細ページはログイン後の管理画面内のため
+  // サーバー側から商品名を自動取得できず、ユーザーが分かる場合のみ手入力する運用のため)。
+  // 指定する場合のみ、空文字列でない文字列であることを検証する。
+  if (body.productName !== undefined && body.productName !== null) {
+    if (typeof body.productName !== "string" || body.productName.trim().length === 0) {
+      errors.push("productNameを指定する場合は空でない文字列である必要があります");
+    }
   }
   if (typeof body.a8ProgramUrl !== "string" || body.a8ProgramUrl.length === 0) {
     errors.push("a8ProgramUrlは必須の文字列です");

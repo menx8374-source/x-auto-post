@@ -582,8 +582,8 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
     const productName = form.elements.productName.value.trim();
     const a8ProgramUrl = form.elements.a8ProgramUrl.value.trim();
 
-    if (!productName || !a8ProgramUrl) {
-      errorEl.textContent = "商品名とA8.netプログラム詳細ページURLの両方を入力してください。";
+    if (!a8ProgramUrl) {
+      errorEl.textContent = "A8.netプログラム詳細ページURLを入力してください。";
       errorEl.hidden = false;
       return;
     }
@@ -594,7 +594,7 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
 
     const { res, data, networkError } = await fetchJSON("/api/applicationTracking", {
       method: "POST",
-      body: JSON.stringify({ productName, a8ProgramUrl }),
+      body: JSON.stringify({ productName: productName || null, a8ProgramUrl }),
     });
 
     submitButton.disabled = false;
@@ -711,7 +711,7 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
       list.appendChild(
         el("li", { class: "tracking-item" }, [
           el("div", { class: "tracking-item-header" }, [
-            el("span", { class: "product-name", text: entry.productName }),
+            el("span", { class: "product-name", text: entry.productName || "商品名: 不明" }),
             el("span", { class: trackingStatusBadgeClass(entry.status), text: trackingStatusLabel(entry.status) }),
           ]),
           ...metaChildren,
