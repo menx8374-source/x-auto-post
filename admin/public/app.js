@@ -5,6 +5,7 @@ import { slugifyProductName } from "./candidateSlug.js";
 import { findConflictingProduct } from "./productConflict.js";
 import { buildA8SearchUrl, copyTextSafely, buildA8GuideMessage } from "./a8Search.js";
 import { resolveEnabledOnSubmit } from "./productEnabled.js";
+import { resolveProductId } from "./productId.js";
 
 (() => {
   "use strict";
@@ -479,10 +480,20 @@ import { resolveEnabledOnSubmit } from "./productEnabled.js";
 
     const isEditing = form.dataset.editing === "true";
     const affiliateUrl = form.elements.affiliateUrl.value.trim();
+    const name = form.elements.name.value.trim();
+
+    // 商品IDは任意項目: 新規追加(編集ではない)で未入力の場合、商品名からスラッグを自動生成する
+    // (それでも空ならランダムな短い識別子にフォールバックする)。詳細はresolveProductId参照。
+    const id = resolveProductId({
+      rawId: form.elements.id.value.trim(),
+      isEditing,
+      name,
+      slugifyName: slugifyProductName,
+    });
 
     const payload = {
-      id: form.elements.id.value.trim(),
-      name: form.elements.name.value.trim(),
+      id,
+      name,
       officialUrl: form.elements.officialUrl.value.trim(),
       affiliateUrl,
       facts,
