@@ -625,5 +625,88 @@ npm test
 
 ---
 
+---
+
+## タブ分け+常時表示サマリーバー追加(2026-07-19)
+
+ユーザー指示「セクションが多くて長い/今の状態が一目で分からない」への対応。既存5セクションを2タブに再編成し、ページ最上部に件数サマリーを常時表示する。
+
+### 実装した内容
+- `admin/public/summary.js`(新規): `computeSummary(products, tracking)`純粋関数。`products`の`enabled`件数/無効件数、`tracking`の`status: "applying"`/`"approved"`件数を集計する(DOM操作なし)。
+- `admin/public/app.js`:
+  - `state.activeTab`(`"products"|"a8net"`、初期値`"products"`)を追加。
+  - `renderSummaryBar()`(新規): 投稿対象/無効/申請中/提携済み(未登録)の件数をチップ表示。`renderApp()`内でタブ切り替えより上、常に描画する位置に配置(タブを切り替えても消えない)。
+  - `renderTabBar()`(新規): 「商品管理」「A8.net連携」の2ボタン。押下で`state.activeTab`を更新し`renderApp()`を再実行。
+  - `renderApp()`: `activeTab === "products"`なら既存セクション1(アフィリエイトリンク追加)・2(商品一覧)を、`"a8net"`ならセクション3(カテゴリ検索)・4(申請記録フォーム)・5(進捗一覧)のみappEl配下に描画する(非アクティブ側は生成自体しない)。
+  - `openFormFromTrackingEntry(entry)`: 「A8.net連携」タブの「商品を追加」ボタン押下時、`state.activeTab !== "products"`なら先に`"products"`へ切り替えて`renderApp()`を実行してから`openForm()`する(非表示タブにフォームが開いて見えなくなる事故を防止)。他に別タブのUIを開く箇所は無いことをコード全体のgrepで確認済み。
+  - 既存の`scheduleRender`/`state.formOpen`によるフォーム編集中の再描画保留の仕組みは変更なし(タブ切り替え自体はフォームが閉じている状態でのみボタンが押せるため影響なし)。
+- `admin/public/style.css`: `.summary-bar`/`.summary-chip`(`-on`/`-off`/`-applying`/`-approved`)、`.tab-bar`/`.tab-btn`/`.tab-btn-active`を追加(既存の`--color-*`変数・`--radius`・44px最小タップサイズ等の既存トークンを踏襲)。
+
+### 技術選定
+- 新規ライブラリ追加なし。既存の素のJS(`el()`ヘルパー・IIFE構成)パターンを踏襲し、ビルドステップなしの方針を維持。
+
+### 受け入れ基準チェック(自己申告)
+- [x] サマリーバー: `computeSummary`で4種の件数を計算しチップ表示、`renderApp()`内でタブより上・常時描画: コード確認済み。0件の項目も表示する(条件分岐なしで常に4チップとも描画)。
+- [x] タブ2つに再編成(商品管理=セクション1・2、A8.net連携=セクション3・4・5): `renderApp()`の分岐で実装、非アクティブタブはDOM未生成。
+- [x] タブボタンの視覚的な選択中/非選択区別: `.tab-btn-active`クラスで背景色・文字色を切り替え、`aria-pressed`属性も付与。
+- [x] 「提携申請の進捗」の「商品を追加」ボタン押下時、商品管理タブへ自動切り替えしてからフォームを開く: `openFormFromTrackingEntry`で実装。
+- [x] `computeSummary`を純粋関数として`admin/public/summary.js`に切り出し、`admin/test/summary.test.ts`(新規5件)を追加。
+- [x] 本番投稿パイプライン・`admin/functions/`配下は無変更: `git status`で変更ファイルが`admin/public/*`・`admin/test/summary.test.ts`のみであることを確認。
+- [x] 既存機能(商品追加・編集・アフィリエイトリンク解決・facts提案・A8.net検索・提携申請記録・ステータス更新)のロジックは無変更(セクションの描画位置・タブ内包のみ変更、各関数本体は無変更)。
+- [x] ビルドステップなし(`<script type="module">`のみ、bundler不使用)を維持。
+- [x] `npm run typecheck`(admin) OK。
+- [x] `npm test`(admin) 175件全パス(新規`summary.test.ts` 5件含む)。
+- [x] git commitはしていない。
+
+### アプリの起動方法(変更なし)
+```bash
+cd admin
+npm install
+npm run dev        # wrangler pages dev public --compatibility-date=2026-07-01 (既定ポート8788)
+npm run typecheck
+npm test
+```
+
+### 既知の問題・懸念点
+- ブラウザでの実際のタブ切り替えクリック・サマリー件数の目視確認・「商品を追加」ボタン押下時の自動タブ切り替えの実機確認は未実施。本アプリはGitHub OAuthログインが必須(`ALLOWED_GITHUB_LOGIN`に紐づく実アカウントでの認証が必要)なため、プロジェクトに未導入のPlaywright npmパッケージを追加インストールしての自動ログイン+クリック検証は今回見送り、既存selfevalの各節と同様の制約とした(evaluatorでのPlaywright MCP実機検証を想定)。
+  - 代替として: `node --check`によるapp.js/summary.jsの構文確認、`wrangler pages dev`をローカル起動し`curl`で`index.html`/`app.js`/`summary.js`が200で配信されることを確認、`renderApp()`/`renderSummaryBar()`/`renderTabBar()`/`openFormFromTrackingEntry`のロジックをコードレビューで再確認、`computeSummary`のユニットテストで集計ロジックを検証、の4点で代替した。
+- サーバーは確認後に停止済み(ポート8788、`taskkill`で終了確認)。
+
+### 追加したテスト
+- `admin/test/summary.test.ts`(新規、5件): `computeSummary`のenabled/無効集計、`enabled`未定義商品の扱い、applying/approved集計、空配列・undefined入力時の0件返却、未知のstatus値の無視。
+
+---
+
+## /code-review指摘対応(2026-07-19): タブ切り替え時のフォーム破壊バグ2件を修正
+
+オーケストレーターの`/code-review`(effort: low)でCONFIRMED判定された2件を修正。
+
+### 前回フィードバックへの対応
+- 指摘1: タブ切り替えボタンの`onclick`が`renderApp()`を直接呼んでおり、フォームを開いたまま別タブを押すと`closeForm()`を経由せず`appEl.innerHTML=""`でフォームDOMが破壊され、`state.formOpen`が`true`のまま固定→以後`scheduleRender()`(`reloadProducts`/`loadTracking`/`toggleEnabled`)が恒久的にno-opになる → **対応**: `admin/public/app.js`の`renderTabBar()`内`onclick`を、`state.formOpen`が`true`の場合は`state.pendingRender = true`をセットしてから`closeForm()`を呼ぶ形に変更(既存の「フォームを閉じたら保留中の再描画を実行する」仕組みに乗せる)。`formOpen`が`false`の場合のみ従来通り`renderApp()`を直接呼ぶ。これにより新しい`activeTab`での再描画が必ず1回だけ実行され、`state.formOpen`が正しくリセットされる。
+- 指摘2: `openForm()`内の`appEl.prepend(fragment)`がサマリーバー・タブバーより前にフォームを挿入し、フォームが開くとサマリーバー・タブバーが下に押し下げられる → **対応**: `appEl.querySelector(".tab-bar")`でタブバー要素を取得し`tabBar.after(fragment)`で挿入位置をタブバー直後(タブコンテンツの前)に変更。タブバー未描画時のみ従来の`appEl.prepend(fragment)`にフォールバック。
+
+### 実装した内容(差分)
+- `admin/public/app.js`: `renderTabBar()`の`onclick`ハンドラ、`openForm()`のフォーム挿入処理の2箇所のみ変更。他のロジック・エンドポイント呼び出しは無変更。
+
+### 受け入れ基準チェック(自己申告)
+- [x] タブ切り替え時にフォームを開いたままでも`closeForm()`経由で正しく閉じ、`state.formOpen`が固定されない: コード確認済み(`state.pendingRender = true`→`closeForm()`のパスで必ず`renderApp()`が1回実行され`formOpen`が`false`にリセットされる)。
+- [x] フォームを開いてもサマリーバー・タブバーが常に最上部に表示され続ける: `tabBar.after(fragment)`でタブバー直後に挿入するよう変更済み。
+- [x] `npm run typecheck`(admin) OK。
+- [x] `npm test`(admin) 175件全パス(既存テストのみ、今回のバグ修正はDOM操作の副作用に関するものでcomputeSummary等の純粋関数ロジックには影響しないため新規テストは追加していない)。
+- [x] git commitはしていない。
+
+### アプリの起動方法(変更なし)
+```bash
+cd admin
+npm install
+npm run dev        # wrangler pages dev public --compatibility-date=2026-07-01 (既定ポート8788)
+npm run typecheck
+npm test
+```
+
+### 既知の問題・懸念点
+- 修正内容はDOM操作・タイミングに関するものであり、実ブラウザでの「編集フォームを開いたまま別タブを押す→正しく閉じてタブが切り替わる」「フォームを開いた状態でサマリーバー・タブバーが最上部に留まる」という挙動の目視確認は今回も未実施(GitHub OAuthログイン必須のため、既存selfevalと同じ制約)。ローカルで`wrangler pages dev`起動→`curl`で静的ファイルが200で配信されることのみ確認し、サーバーは確認後に停止済み(ポート8788)。evaluatorでのPlaywright MCP実機検証を想定。
+- `openFormFromTrackingEntry`(A8.net連携タブの「商品を追加」ボタン)も`renderApp()`を直接呼ぶ箇所があるが、こちらは呼び出し直後に必ず`openForm()`で新しいフォームを開くため`state.formOpen`が`true`のまま放置される状態にはならず、今回の指摘とは異なるパターンと判断し変更していない。
+
 ## 関連ドキュメント
 - [[x-ai-news-autopost-spec]]（製品仕様書）

@@ -6,6 +6,7 @@ import { findConflictingProduct } from "./productConflict.js";
 import { buildA8SearchUrl, copyTextSafely, buildA8GuideMessage } from "./a8Search.js";
 import { resolveEnabledOnSubmit } from "./productEnabled.js";
 import { resolveProductId } from "./productId.js";
+import { computeSummary } from "./summary.js";
 
 (() => {
   "use strict";
@@ -13,16 +14,24 @@ import { resolveProductId } from "./productId.js";
   const appEl = document.getElementById("app");
   const logoutButton = document.getElementById("logout-button");
 
-  /** @type {{products: Array<object>, tracking: Array<object>, formOpen: boolean, pendingRender: boolean}} */
+  /** @type {{products: Array<object>, tracking: Array<object>, activeTab: "products"|"a8net", formOpen: boolean, pendingRender: boolean}} */
   const state = {
     products: [],
     // 提携申請の進捗(A8.netプログラム詳細ページURLの貼り付けから記録したトラッキングエントリ一覧)。
     tracking: [],
+    // タブ分け: "products"(商品管理)/"a8net"(A8.net連携)。既定は商品管理タブ。
+    activeTab: "products",
     // 編集/追加フォームが開いている間は、バックグラウンドの再描画(renderApp)で
     // 入力内容が消えてしまわないようscheduleRender()経由で再描画を保留する。
     formOpen: false,
     pendingRender: false,
   };
+
+  /** タブ定義: keyはstate.activeTabの値、labelはタブボタンの表示文言 */
+  const TABS = [
+    { key: "products", label: "商品管理" },
+    { key: "a8net", label: "A8.net連携" },
+  ];
 
   function el(tag, attrs, children) {
     const node = document.createElement(tag);
@@ -104,21 +113,80 @@ import { resolveProductId } from "./productId.js";
     logoutButton.hidden = false;
     appEl.innerHTML = "";
 
-    appEl.appendChild(renderAffiliateQuickAddSection());
+    // サマリーバーはタブの外側・常に表示される位置に配置する(タブを切り替えても消えない)。
+    appEl.appendChild(renderSummaryBar());
+    appEl.appendChild(renderTabBar());
 
-    appEl.appendChild(
-      el("section", { class: "card" }, [
-        el("div", { class: "section-header" }, [
-          el("h2", { text: "商品一覧" }),
-          el("button", { class: "btn btn-primary", type: "button", onclick: () => openForm(null) }, ["+ 商品を追加"]),
-        ]),
-        renderProductList(),
-      ])
-    );
+    if (state.activeTab === "products") {
+      appEl.appendChild(renderAffiliateQuickAddSection());
 
-    appEl.appendChild(renderCategorySearchSection());
-    appEl.appendChild(renderTrackingFormSection());
-    appEl.appendChild(renderTrackingSection());
+      appEl.appendChild(
+        el("section", { class: "card" }, [
+          el("div", { class: "section-header" }, [
+            el("h2", { text: "商品一覧" }),
+            el("button", { class: "btn btn-primary", type: "button", onclick: () => openForm(null) }, ["+ 商品を追加"]),
+          ]),
+          renderProductList(),
+        ])
+      );
+    } else {
+      appEl.appendChild(renderCategorySearchSection());
+      appEl.appendChild(renderTrackingFormSection());
+      appEl.appendChild(renderTrackingSection());
+    }
+  }
+
+  /**
+   * 常時表示のサマリーバー(タブの外・ページ最上部)。投稿対象/無効の商品数、
+   * 提携申請中/提携済み(商品未登録)の件数を短いチップで表示する(0件も表示し全体像を一目で把握できるようにする)。
+   */
+  function renderSummaryBar() {
+    const summary = computeSummary(state.products, state.tracking);
+    return el("div", { class: "summary-bar" }, [
+      el("span", { class: "summary-chip summary-chip-on", text: `投稿対象: ${summary.enabledCount}件` }),
+      el("span", { class: "summary-chip summary-chip-off", text: `無効: ${summary.disabledCount}件` }),
+      el("span", { class: "summary-chip summary-chip-applying", text: `申請中: ${summary.applyingCount}件` }),
+      el("span", {
+        class: "summary-chip summary-chip-approved",
+        text: `提携済み(未登録): ${summary.approvedCount}件`,
+      }),
+    ]);
+  }
+
+  /**
+   * タブ切り替えボタン(「商品管理」「A8.net連携」)。押下時はstate.activeTabを更新し
+   * renderApp()で再描画する(非アクティブなタブのセクションはDOMに描画しない)。
+   */
+  function renderTabBar() {
+    const buttons = TABS.map((tab) => {
+      const isActive = state.activeTab === tab.key;
+      return el(
+        "button",
+        {
+          class: `tab-btn${isActive ? " tab-btn-active" : ""}`,
+          type: "button",
+          "aria-pressed": isActive ? "true" : "false",
+          onclick: () => {
+            if (state.activeTab === tab.key) return;
+            state.activeTab = tab.key;
+            // フォームが開いている場合はrenderApp()を直接呼ばずcloseForm()で正しく閉じる
+            // (直接innerHTML=""するとcloseForm()を経由しないままstate.formOpenがtrueに
+            // 固定され、以後scheduleRender()が恒久的にno-opになってしまうため)。
+            // pendingRenderを強制的に立ててからcloseForm()を呼ぶことで、既存の
+            // 「フォームを閉じたら保留中の再描画を実行する」仕組みに乗せてタブ切り替え後の
+            // 再描画(新しいactiveTabでの描画)を確実に行う。
+            if (state.formOpen) {
+              state.pendingRender = true;
+              closeForm();
+            } else {
+              renderApp();
+            }
+          },
+        },
+        [tab.label]
+      );
+    });
+    return el("div", { class: "tab-bar" }, buttons);
   }
 
   /** カテゴリからA8.netを探す際の固定キーワード一覧 */
@@ -452,7 +520,15 @@ import { resolveProductId } from "./productId.js";
       suggestFactsFromOfficialUrl(form);
     });
 
-    appEl.prepend(fragment);
+    // サマリーバー・タブバーは常にページ最上部に表示され続ける設計のため、
+    // appEl.prepend()ではなくタブバーの直後(タブコンテンツの前)にフォームを挿入する。
+    const tabBar = appEl.querySelector(".tab-bar");
+    if (tabBar) {
+      tabBar.after(fragment);
+    } else {
+      // タブバーが未描画(初期化前など)の場合のフォールバック
+      appEl.prepend(fragment);
+    }
     state.formOpen = true;
     form.elements.id.focus();
   }
@@ -660,8 +736,15 @@ import { resolveProductId } from "./productId.js";
    * 「商品を追加」ボタン(status:"approved"のエントリのみ): 既存の商品追加フォームを
    * programNameのみ事前入力で開く(officialUrlは不明なので空欄のまま)。実際のアフィリエイト
    * リンクはユーザーがA8.netで作成後に貼り付ける(このボタン自体はリンクを生成・自動入力しない)。
+   * このボタンは「A8.net連携」タブ側にあるが、開くフォームは「商品管理」タブ側のセクションに
+   * 属するため、フォームを開く前にactiveTabを"products"に切り替えて再描画する
+   * (切り替えないと、開いたフォームが非表示タブに入ってしまいユーザーから見えなくなる)。
    */
   function openFormFromTrackingEntry(entry) {
+    if (state.activeTab !== "products") {
+      state.activeTab = "products";
+      renderApp();
+    }
     openForm(null, {
       id: slugifyProductName(entry.programName),
       name: entry.programName,
