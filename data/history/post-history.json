@@ -177,5 +177,21 @@
       "2079174740875313384",
       "2079174742091677770"
     ]
+  },
+  {
+    "url": "https://kn.itmedia.co.jp/kn/articles/2607/10/news007.html",
+    "title": "中外製薬「社員1人にAIエージェント10体」作戦で成果倍増を目指す、AI使いこなし術",
+    "score": 46.89,
+    "selectedAt": "2026-07-20T22:30:52.709Z",
+    "slot": "morning",
+    "status": "posted",
+    "id": "fbc5f626-2af1-41f7-8621-e8da32f9ccd1",
+    "normalizedUrl": "https://kn.itmedia.co.jp/kn/articles/2607/10/news007.html",
+    "postedAt": "2026-07-20T22:30:54.309Z",
+    "tweetIds": [
+      "2079333249210257411",
+      "2079333250988699984",
+      "2079333252251230327"
+    ]
   }
 ]
