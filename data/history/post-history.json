@@ -144,5 +144,21 @@
       "2078971102798164419",
       "2078971104173949273"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/20/news010.html",
+    "title": "Hugging FaceにAI主導のサイバー攻撃　防御もAIで対抗するも、商用モデルは解析拒否で「GLM」採用",
+    "score": 38.32,
+    "selectedAt": "2026-07-20T03:15:44.682Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "f0a5ea3c-dc5d-46e5-b0e4-8553ee4e22e5",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/20/news010.html",
+    "postedAt": "2026-07-20T03:15:46.081Z",
+    "tweetIds": [
+      "2079042550103683389",
+      "2079042551525572928",
+      "2079042552561607147"
+    ]
   }
 ]
