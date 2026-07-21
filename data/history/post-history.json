@@ -209,5 +209,21 @@
       "2079404920185508006",
       "2079404921200484579"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/21/2000000210/",
+    "title": "Anthropic、著作権訴訟で史上最大「2400億円」和解金支払いへ　学習利用は「フェアユース」認定",
+    "score": 22.76,
+    "selectedAt": "2026-07-21T12:01:03.164Z",
+    "slot": "evening",
+    "status": "posted",
+    "id": "48bbd4ea-c198-4733-b759-b41fba0dc55e",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/21/2000000210",
+    "postedAt": "2026-07-21T12:01:04.773Z",
+    "tweetIds": [
+      "2079537136815202372",
+      "2079537138224574832",
+      "2079537139348599281"
+    ]
   }
 ]
