@@ -258,5 +258,22 @@
       "2079767300220100976",
       "2079767301675450583"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/22/2000000214/",
+    "title": "OpenAIのモデルがサイバー攻撃能力評価中に暴走　テストの答えを求めてHugging Faceに侵入",
+    "score": 24.64,
+    "selectedAt": "2026-07-22T12:01:02.512Z",
+    "slot": "evening",
+    "status": "posted",
+    "id": "89033d18-5009-4c9b-8075-120bb75783ed",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/22/2000000214",
+    "postedAt": "2026-07-22T12:01:04.005Z",
+    "tweetIds": [
+      "2079899520696250717",
+      "2079899522017427933",
+      "2079899523028246917",
+      "2079899524018180365"
+    ]
   }
 ]
