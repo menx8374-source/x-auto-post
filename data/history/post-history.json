@@ -285,5 +285,21 @@
     "status": "failed",
     "id": "930b9100-4d0b-4883-8baf-5d6636e065e3",
     "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2607/23/news041.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/23/2000000216/",
+    "title": "Macアプリ版「Claude Code」がiOSシミュレータと連携　「Computer Use」なしでアプリ操作",
+    "score": 42.37,
+    "selectedAt": "2026-07-23T03:15:39.315Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "27ee4a18-7614-4e9b-899c-134103895c93",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/23/2000000216",
+    "postedAt": "2026-07-23T03:15:40.895Z",
+    "tweetIds": [
+      "2080129691743404418",
+      "2080129693198819541",
+      "2080129694385742227"
+    ]
   }
 ]
