@@ -311,5 +311,21 @@
     "status": "failed",
     "id": "3f735708-2157-419a-a739-a34c0838c64b",
     "normalizedUrl": "https://eetimes.itmedia.co.jp/ee/articles/2607/23/news079.html"
+  },
+  {
+    "url": "https://kn.itmedia.co.jp/kn/articles/2607/24/news049.html",
+    "title": "【元経産省の専門家に聞く】中小企業がハマる「生成AIトラブル」5つの解決シナリオ",
+    "score": 46.89,
+    "selectedAt": "2026-07-23T22:30:55.135Z",
+    "slot": "morning",
+    "status": "posted",
+    "id": "5713ed68-34a1-4652-ab7e-4efb82ade52d",
+    "normalizedUrl": "https://kn.itmedia.co.jp/kn/articles/2607/24/news049.html",
+    "postedAt": "2026-07-23T22:30:56.576Z",
+    "tweetIds": [
+      "2080420422961742331",
+      "2080420424312361344",
+      "2080420425411301411"
+    ]
   }
 ]
