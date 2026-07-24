@@ -343,5 +343,15 @@
       "2080492098864951654",
       "2080492099884159234"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/24/news094.html",
+    "title": "スーパーに並んだ「ごちゃごちゃ生成AIポップ」が物議　“看板王”こと、きぬた歯科院長「これはアリ」",
+    "score": 40.53,
+    "selectedAt": "2026-07-24T12:00:54.369Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "8a841d90-15e8-41f8-9149-7ffebb839d5f",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/24/news094.html"
   }
 ]
