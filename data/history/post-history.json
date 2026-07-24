@@ -327,5 +327,21 @@
       "2080420424312361344",
       "2080420425411301411"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/24/2000000218/",
+    "title": "AIは“声で操作”する時代に？　ChatGPTとClaude、相次ぎ音声機能を強化",
+    "score": 44.14,
+    "selectedAt": "2026-07-24T03:15:43.494Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "4334a4c8-59d9-4aff-8690-ce2729733bbb",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/24/2000000218",
+    "postedAt": "2026-07-24T03:15:45.145Z",
+    "tweetIds": [
+      "2080492097350877691",
+      "2080492098864951654",
+      "2080492099884159234"
+    ]
   }
 ]
