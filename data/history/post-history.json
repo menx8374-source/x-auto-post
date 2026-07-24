@@ -353,5 +353,15 @@
     "status": "failed",
     "id": "8a841d90-15e8-41f8-9149-7ffebb839d5f",
     "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/24/news094.html"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/113643",
+    "title": "🔒 AIを使って論文などのドキュメントを効率よくフォルダ分けする手法",
+    "score": 14.95,
+    "selectedAt": "2026-07-24T22:32:07.406Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "c1c9b591-bdb6-4296-96a2-918075924bd6",
+    "normalizedUrl": "https://ai-data-base.com/archives/113643"
   }
 ]
