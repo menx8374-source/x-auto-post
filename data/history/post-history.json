@@ -383,5 +383,15 @@
     "status": "failed",
     "id": "b39ce98f-8e04-43bb-9b05-0c20c868546e",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/24/2000000221"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/26/news014.html",
+    "title": "MicrosoftやNVIDIAなど、AIのオープンウェイト規制に反対する書簡を公開――Anthropicは署名せず",
+    "score": 45.89,
+    "selectedAt": "2026-07-25T22:32:14.389Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "f82d9763-ec15-4c1a-8005-729aa45be3a4",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/26/news014.html"
   }
 ]
