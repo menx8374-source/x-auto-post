@@ -373,5 +373,15 @@
     "status": "failed",
     "id": "6ef9541b-44e2-48b5-8173-ec3ec16143f5",
     "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/25/news016.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/24/2000000221/",
+    "title": "近畿大、入試にAIの利用認める　情報学部の総合型選抜で",
+    "score": 1.65,
+    "selectedAt": "2026-07-25T12:02:19.629Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "b39ce98f-8e04-43bb-9b05-0c20c868546e",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/24/2000000221"
   }
 ]
