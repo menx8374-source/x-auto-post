@@ -363,5 +363,15 @@
     "status": "failed",
     "id": "c1c9b591-bdb6-4296-96a2-918075924bd6",
     "normalizedUrl": "https://ai-data-base.com/archives/113643"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/25/news016.html",
+    "title": "Anthropic、「Claude Opus 5」公開　Fable 5に迫る性能を半額で――サイバー安全策は緩和、拒否時は自動フォールバックも",
+    "score": 27.36,
+    "selectedAt": "2026-07-25T03:17:26.872Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "6ef9541b-44e2-48b5-8173-ec3ec16143f5",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/25/news016.html"
   }
 ]
