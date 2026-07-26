@@ -111,5 +111,303 @@
       "2078680904474521810",
       "2078680905556635685"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/17/2000000202/",
+    "title": "「スマホで動く」270億パラメーターLLM「Bonsai 27B」登場",
+    "score": 10.68,
+    "selectedAt": "2026-07-19T12:01:48.504Z",
+    "slot": "evening",
+    "status": "posted",
+    "id": "f3488230-dfcd-47f7-b92d-e96cc9d4679e",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/17/2000000202",
+    "postedAt": "2026-07-19T12:01:49.810Z",
+    "tweetIds": [
+      "2078812550192603586",
+      "2078812551530561732",
+      "2078812552553959674"
+    ]
+  },
+  {
+    "url": "https://ai-data-base.com/archives/113280",
+    "title": "🔒 AIによる企業リスクを抑えるには、AIに対して性悪説を持つしかない",
+    "score": 28.86,
+    "selectedAt": "2026-07-19T22:31:49.462Z",
+    "slot": "morning",
+    "status": "posted",
+    "id": "1decb768-31ae-4223-aff0-5d369326dd0f",
+    "normalizedUrl": "https://ai-data-base.com/archives/113280",
+    "postedAt": "2026-07-19T22:31:51.476Z",
+    "tweetIds": [
+      "2078971099660910609",
+      "2078971101565067425",
+      "2078971102798164419",
+      "2078971104173949273"
+    ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/20/news010.html",
+    "title": "Hugging FaceにAI主導のサイバー攻撃　防御もAIで対抗するも、商用モデルは解析拒否で「GLM」採用",
+    "score": 38.32,
+    "selectedAt": "2026-07-20T03:15:44.682Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "f0a5ea3c-dc5d-46e5-b0e4-8553ee4e22e5",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/20/news010.html",
+    "postedAt": "2026-07-20T03:15:46.081Z",
+    "tweetIds": [
+      "2079042550103683389",
+      "2079042551525572928",
+      "2079042552561607147"
+    ]
+  },
+  {
+    "url": "https://thenextweb.com/news/ai-advice-suppresses-critical-thinking-wrong-answers-study",
+    "title": "AI advice made people less accurate but more confident – sudy",
+    "score": 57.95,
+    "selectedAt": "2026-07-20T12:01:01.104Z",
+    "slot": "evening",
+    "status": "posted",
+    "id": "213b940a-13a7-4a3e-9bcb-aa0eb44ab1f1",
+    "normalizedUrl": "https://thenextweb.com/news/ai-advice-suppresses-critical-thinking-wrong-answers-study",
+    "postedAt": "2026-07-20T12:01:02.555Z",
+    "tweetIds": [
+      "2079174738300035142",
+      "2079174739373781155",
+      "2079174740875313384",
+      "2079174742091677770"
+    ]
+  },
+  {
+    "url": "https://kn.itmedia.co.jp/kn/articles/2607/10/news007.html",
+    "title": "中外製薬「社員1人にAIエージェント10体」作戦で成果倍増を目指す、AI使いこなし術",
+    "score": 46.89,
+    "selectedAt": "2026-07-20T22:30:52.709Z",
+    "slot": "morning",
+    "status": "posted",
+    "id": "fbc5f626-2af1-41f7-8621-e8da32f9ccd1",
+    "normalizedUrl": "https://kn.itmedia.co.jp/kn/articles/2607/10/news007.html",
+    "postedAt": "2026-07-20T22:30:54.309Z",
+    "tweetIds": [
+      "2079333249210257411",
+      "2079333250988699984",
+      "2079333252251230327"
+    ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/21/2000000208/",
+    "title": "GMO熊谷氏「在宅勤務廃止」発言を釈明　「作業はAIに任せ、人はオフィスに」",
+    "score": 42.74,
+    "selectedAt": "2026-07-21T03:15:40.239Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "2a2e6f42-c5aa-4ac6-a7f9-086baca980d7",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/21/2000000208",
+    "postedAt": "2026-07-21T03:15:41.497Z",
+    "tweetIds": [
+      "2079404918801403986",
+      "2079404920185508006",
+      "2079404921200484579"
+    ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/21/2000000210/",
+    "title": "Anthropic、著作権訴訟で史上最大「2400億円」和解金支払いへ　学習利用は「フェアユース」認定",
+    "score": 22.76,
+    "selectedAt": "2026-07-21T12:01:03.164Z",
+    "slot": "evening",
+    "status": "posted",
+    "id": "48bbd4ea-c198-4733-b759-b41fba0dc55e",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/21/2000000210",
+    "postedAt": "2026-07-21T12:01:04.773Z",
+    "tweetIds": [
+      "2079537136815202372",
+      "2079537138224574832",
+      "2079537139348599281"
+    ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/22/2000000212/",
+    "title": "Google、「Gemini 3.6 Flash」など3モデルを発表　出力トークンを削減しつつ値下げ、「Gemini 4」も予告",
+    "score": 47.6,
+    "selectedAt": "2026-07-21T22:30:52.659Z",
+    "slot": "morning",
+    "status": "posted",
+    "id": "74aa19fe-bfc0-4d20-805a-54f08bbcb923",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/22/2000000212",
+    "postedAt": "2026-07-21T22:30:53.896Z",
+    "tweetIds": [
+      "2079695635943457158",
+      "2079695637306634527",
+      "2079695638317486421"
+    ]
+  },
+  {
+    "url": "https://ai-data-base.com/archives/113582",
+    "title": "🔒 エージェントハーネスを工夫すればClaude Codeにせまる性能を出しつつトークン効率も上げられる",
+    "score": 43.58,
+    "selectedAt": "2026-07-22T03:15:37.884Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "e0ef2f67-b6b5-422e-a6ab-6a881ce5b559",
+    "normalizedUrl": "https://ai-data-base.com/archives/113582",
+    "postedAt": "2026-07-22T03:15:39.744Z",
+    "tweetIds": [
+      "2079767297598595452",
+      "2079767299049816340",
+      "2079767300220100976",
+      "2079767301675450583"
+    ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/22/2000000214/",
+    "title": "OpenAIのモデルがサイバー攻撃能力評価中に暴走　テストの答えを求めてHugging Faceに侵入",
+    "score": 24.64,
+    "selectedAt": "2026-07-22T12:01:02.512Z",
+    "slot": "evening",
+    "status": "posted",
+    "id": "89033d18-5009-4c9b-8075-120bb75783ed",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/22/2000000214",
+    "postedAt": "2026-07-22T12:01:04.005Z",
+    "tweetIds": [
+      "2079899520696250717",
+      "2079899522017427933",
+      "2079899523028246917",
+      "2079899524018180365"
+    ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/business/articles/2607/23/news041.html",
+    "title": "NVIDIAフアンCEOが語る“日本復活”のシナリオ　10年続く半導体バブルと「原発活用」の勝算",
+    "score": 46.9,
+    "selectedAt": "2026-07-22T22:30:46.582Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "930b9100-4d0b-4883-8baf-5d6636e065e3",
+    "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2607/23/news041.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/23/2000000216/",
+    "title": "Macアプリ版「Claude Code」がiOSシミュレータと連携　「Computer Use」なしでアプリ操作",
+    "score": 42.37,
+    "selectedAt": "2026-07-23T03:15:39.315Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "27ee4a18-7614-4e9b-899c-134103895c93",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/23/2000000216",
+    "postedAt": "2026-07-23T03:15:40.895Z",
+    "tweetIds": [
+      "2080129691743404418",
+      "2080129693198819541",
+      "2080129694385742227"
+    ]
+  },
+  {
+    "url": "https://eetimes.itmedia.co.jp/ee/articles/2607/23/news079.html",
+    "title": "三菱電機とソニー、AIビジョンセンサーで新会社設立へ",
+    "score": 26.71,
+    "selectedAt": "2026-07-23T12:01:05.527Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "3f735708-2157-419a-a739-a34c0838c64b",
+    "normalizedUrl": "https://eetimes.itmedia.co.jp/ee/articles/2607/23/news079.html"
+  },
+  {
+    "url": "https://kn.itmedia.co.jp/kn/articles/2607/24/news049.html",
+    "title": "【元経産省の専門家に聞く】中小企業がハマる「生成AIトラブル」5つの解決シナリオ",
+    "score": 46.89,
+    "selectedAt": "2026-07-23T22:30:55.135Z",
+    "slot": "morning",
+    "status": "posted",
+    "id": "5713ed68-34a1-4652-ab7e-4efb82ade52d",
+    "normalizedUrl": "https://kn.itmedia.co.jp/kn/articles/2607/24/news049.html",
+    "postedAt": "2026-07-23T22:30:56.576Z",
+    "tweetIds": [
+      "2080420422961742331",
+      "2080420424312361344",
+      "2080420425411301411"
+    ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/24/2000000218/",
+    "title": "AIは“声で操作”する時代に？　ChatGPTとClaude、相次ぎ音声機能を強化",
+    "score": 44.14,
+    "selectedAt": "2026-07-24T03:15:43.494Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "4334a4c8-59d9-4aff-8690-ce2729733bbb",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/24/2000000218",
+    "postedAt": "2026-07-24T03:15:45.145Z",
+    "tweetIds": [
+      "2080492097350877691",
+      "2080492098864951654",
+      "2080492099884159234"
+    ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/24/news094.html",
+    "title": "スーパーに並んだ「ごちゃごちゃ生成AIポップ」が物議　“看板王”こと、きぬた歯科院長「これはアリ」",
+    "score": 40.53,
+    "selectedAt": "2026-07-24T12:00:54.369Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "8a841d90-15e8-41f8-9149-7ffebb839d5f",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/24/news094.html"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/113643",
+    "title": "🔒 AIを使って論文などのドキュメントを効率よくフォルダ分けする手法",
+    "score": 14.95,
+    "selectedAt": "2026-07-24T22:32:07.406Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "c1c9b591-bdb6-4296-96a2-918075924bd6",
+    "normalizedUrl": "https://ai-data-base.com/archives/113643"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/25/news016.html",
+    "title": "Anthropic、「Claude Opus 5」公開　Fable 5に迫る性能を半額で――サイバー安全策は緩和、拒否時は自動フォールバックも",
+    "score": 27.36,
+    "selectedAt": "2026-07-25T03:17:26.872Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "6ef9541b-44e2-48b5-8173-ec3ec16143f5",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/25/news016.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/24/2000000221/",
+    "title": "近畿大、入試にAIの利用認める　情報学部の総合型選抜で",
+    "score": 1.65,
+    "selectedAt": "2026-07-25T12:02:19.629Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "b39ce98f-8e04-43bb-9b05-0c20c868546e",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/24/2000000221"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/26/news014.html",
+    "title": "MicrosoftやNVIDIAなど、AIのオープンウェイト規制に反対する書簡を公開――Anthropicは署名せず",
+    "score": 45.89,
+    "selectedAt": "2026-07-25T22:32:14.389Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "f82d9763-ec15-4c1a-8005-729aa45be3a4",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/26/news014.html"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/113818",
+    "title": "🔒 Claude Opus 5公開。Maxエフォートが最善とは限らない、味わい深い挙動",
+    "score": 34.06,
+    "selectedAt": "2026-07-26T03:17:04.899Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "d7f5865e-5107-46ec-93a4-55b52206159c",
+    "normalizedUrl": "https://ai-data-base.com/archives/113818",
+    "postedAt": "2026-07-26T03:17:06.153Z",
+    "tweetIds": [
+      "2081217213525377422",
+      "2081217214687150211",
+      "2081217215668633609"
+    ]
   }
 ]
