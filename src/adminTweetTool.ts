@@ -18,7 +18,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
-import { createXClient, type XPostClient } from "./xPublish.js";
+import { createXClient, XApiError, type XPostClient } from "./xPublish.js";
 import { calculateTweetLength, fitsInSingleTweet, TWEET_CHAR_LIMIT } from "./tweetLength.js";
 
 /** CLIから直接実行された場合のみ、リポジトリ直下の.env(存在すれば)をprocess.envへ読み込む */
@@ -117,7 +117,11 @@ export async function testPostCommand(client: XPostClient | null, text: string |
     log.info("test tweet posted successfully", { tweetId: posted.id });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    log.error("failed to post test tweet", { message });
+    const apiErrorDetail = err instanceof XApiError ? err.apiErrorDetail : undefined;
+    log.error("failed to post test tweet", {
+      message,
+      apiErrorDetailJson: apiErrorDetail ? JSON.stringify(apiErrorDetail) : undefined,
+    });
     process.exitCode = 1;
   }
 }
