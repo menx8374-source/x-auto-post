@@ -268,6 +268,7 @@ export function createXApiPublish(
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        const apiErrorDetail = err instanceof XApiError ? err.apiErrorDetail : undefined;
         log.error("failed to post tweet to X; stopping thread here", {
           failedAtIndex: tweet.index,
           total: tweets.length,
@@ -275,6 +276,7 @@ export function createXApiPublish(
           postedTweetIds: postedIds,
           url: candidate.url,
           message,
+          apiErrorDetailJson: apiErrorDetail ? JSON.stringify(apiErrorDetail) : undefined,
         });
         return {
           posted: false,
