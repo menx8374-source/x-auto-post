@@ -393,5 +393,21 @@
     "status": "failed",
     "id": "f82d9763-ec15-4c1a-8005-729aa45be3a4",
     "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/26/news014.html"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/113818",
+    "title": "🔒 Claude Opus 5公開。Maxエフォートが最善とは限らない、味わい深い挙動",
+    "score": 34.06,
+    "selectedAt": "2026-07-26T03:17:04.899Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "d7f5865e-5107-46ec-93a4-55b52206159c",
+    "normalizedUrl": "https://ai-data-base.com/archives/113818",
+    "postedAt": "2026-07-26T03:17:06.153Z",
+    "tweetIds": [
+      "2081217213525377422",
+      "2081217214687150211",
+      "2081217215668633609"
+    ]
   }
 ]
