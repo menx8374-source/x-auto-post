@@ -439,5 +439,21 @@
     "status": "failed",
     "id": "3303b0ec-a212-42d5-9326-8c4d40f29816",
     "normalizedUrl": "https://ai-data-base.com/archives/113715"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/27/2000000224/",
+    "title": "NVIDIA、「オープンなAIセキュリティ」掲げる業界連合　Microsoftなど30社超が参加",
+    "score": 42.43,
+    "selectedAt": "2026-07-27T12:01:00.620Z",
+    "slot": "evening",
+    "status": "posted",
+    "id": "fbf90458-a6ce-43c2-bf3b-a8ee039b465e",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/27/2000000224",
+    "postedAt": "2026-07-27T12:01:01.847Z",
+    "tweetIds": [
+      "2081711451916619968",
+      "2081711453267284103",
+      "2081711454231933191"
+    ]
   }
 ]
