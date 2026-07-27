@@ -429,5 +429,15 @@
     "status": "failed",
     "id": "a2581ce7-717c-436b-9837-717ef3e00c73",
     "normalizedUrl": "https://kn.itmedia.co.jp/kn/articles/2607/27/news029.html"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/113715",
+    "title": "🔒 【論文著者監修・コメント】AIエージェントへの人間の「口出し」は序盤がとくに有効。最適な確認タイミングが数学的に証明された",
+    "score": 33.72,
+    "selectedAt": "2026-07-27T03:17:08.039Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "3303b0ec-a212-42d5-9326-8c4d40f29816",
+    "normalizedUrl": "https://ai-data-base.com/archives/113715"
   }
 ]
