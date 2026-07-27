@@ -455,5 +455,15 @@
       "2081711453267284103",
       "2081711454231933191"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/articles/2607/28/news059.html",
+    "title": "NVIDIAやMicrosoftなど30社超、オープンAIの防御ツール共同開発の「Open Secure AI Alliance」設立",
+    "score": 48.48,
+    "selectedAt": "2026-07-27T22:30:51.837Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "d511ffc6-f9c8-4857-bfa4-a8cb48bf97dc",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/28/news059.html"
   }
 ]
