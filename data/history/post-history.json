@@ -465,5 +465,15 @@
     "status": "failed",
     "id": "d511ffc6-f9c8-4857-bfa4-a8cb48bf97dc",
     "normalizedUrl": "https://www.itmedia.co.jp/news/articles/2607/28/news059.html"
+  },
+  {
+    "url": "https://kn.itmedia.co.jp/kn/articles/2607/28/news030.html",
+    "title": "なぜ、Microsoft 365 Copilotは「会社の仕事を理解する」のがうまいのか？",
+    "score": 25.91,
+    "selectedAt": "2026-07-28T03:15:39.151Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "5347f223-5255-46d7-a769-1151a2e3588b",
+    "normalizedUrl": "https://kn.itmedia.co.jp/kn/articles/2607/28/news030.html"
   }
 ]
