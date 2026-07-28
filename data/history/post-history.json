@@ -475,5 +475,15 @@
     "status": "failed",
     "id": "5347f223-5255-46d7-a769-1151a2e3588b",
     "normalizedUrl": "https://kn.itmedia.co.jp/kn/articles/2607/28/news030.html"
+  },
+  {
+    "url": "https://kn.itmedia.co.jp/kn/articles/2607/28/news093.html",
+    "title": "これから始めるAIコーディング・AI開発　「Cursor」「Dify」超入門",
+    "score": 44.04,
+    "selectedAt": "2026-07-28T12:01:02.486Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "c5345eb5-e4df-475e-b735-124bf7f57a9b",
+    "normalizedUrl": "https://kn.itmedia.co.jp/kn/articles/2607/28/news093.html"
   }
 ]
