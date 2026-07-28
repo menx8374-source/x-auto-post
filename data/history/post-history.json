@@ -485,5 +485,15 @@
     "status": "failed",
     "id": "c5345eb5-e4df-475e-b735-124bf7f57a9b",
     "normalizedUrl": "https://kn.itmedia.co.jp/kn/articles/2607/28/news093.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2607/29/2000000255/",
+    "title": "OpenAIやAnthropicなどの従業員、米政府に「AI開発のペース調整を」と提言",
+    "score": 48.07,
+    "selectedAt": "2026-07-28T22:30:45.114Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "e44c8845-2b07-4f52-86de-f2de3c0b873f",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2607/29/2000000255"
   }
 ]
