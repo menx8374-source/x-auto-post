@@ -495,5 +495,15 @@
     "status": "failed",
     "id": "e44c8845-2b07-4f52-86de-f2de3c0b873f",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2607/29/2000000255"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/114163",
+    "title": "🔒 ClaudeやCodexに匹敵するとされるオープンモデル「Kimi K3」が公開、性能とコストの報告を整理",
+    "score": 44.55,
+    "selectedAt": "2026-07-29T03:15:38.641Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "14bad504-5340-4adb-9223-a85229356713",
+    "normalizedUrl": "https://ai-data-base.com/archives/114163"
   }
 ]
