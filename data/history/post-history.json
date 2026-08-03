@@ -515,5 +515,15 @@
     "status": "failed",
     "id": "20a25aa5-a75e-4f75-9498-9b695441d9bb",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/29/2000000273"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2607/31/2000000322/",
+    "title": "スクエニ、ゲームの品質テストをGeminiで自動化　AIが画面を見ながらコントローラーを操作、検証作業を自走",
+    "score": 40.13,
+    "selectedAt": "2026-08-03T13:31:27.391Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "7b7554c7-a004-4afd-a447-6c5a0d7eb0b4",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/31/2000000322"
   }
 ]
