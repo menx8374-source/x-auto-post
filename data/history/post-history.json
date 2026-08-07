@@ -525,5 +525,21 @@
     "status": "failed",
     "id": "7b7554c7-a004-4afd-a447-6c5a0d7eb0b4",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2607/31/2000000322"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/07/2000000443/",
+    "title": "PFNの国産LLM「PLaMo 3.0 Prime」、さくらのAI推論基盤で提供開始　利用は申請制",
+    "score": 43.97,
+    "selectedAt": "2026-08-07T05:09:09.518Z",
+    "slot": "noon",
+    "status": "posted",
+    "id": "2497f1dd-9fec-4910-8ad4-f17052ffc9bd",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/07/2000000443",
+    "postedAt": "2026-08-07T05:09:10.684Z",
+    "tweetIds": [
+      "2085594072530764206",
+      "2085594073768022457",
+      "2085594074715939102"
+    ]
   }
 ]
