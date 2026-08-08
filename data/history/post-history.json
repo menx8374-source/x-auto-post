@@ -541,5 +541,15 @@
       "2085594073768022457",
       "2085594074715939102"
     ]
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2608/08/2000000460/",
+    "title": "Anthropic、「Fable 5」の生物学の制限を緩和　誤検知によるフォールバックを約85％削減",
+    "score": 43.63,
+    "selectedAt": "2026-08-08T00:02:36.760Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "eb804ac4-9962-4dd8-b4d8-422ec71835fc",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/08/2000000460"
   }
 ]
