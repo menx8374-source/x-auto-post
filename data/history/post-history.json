@@ -571,5 +571,15 @@
     "status": "failed",
     "id": "455e6e40-420a-48f4-a008-285c004c5fa7",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/08/2000000459"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2608/09/2000000463/",
+    "title": "Hugging Face侵害、AIエージェントは社内に“秘密の掲示板”を作っていた──OpenAIがBlack Hatで詳細説明",
+    "score": 40.78,
+    "selectedAt": "2026-08-08T23:54:55.195Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "fc21f0d0-15d8-42f2-a09b-3345d0d8c3be",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/09/2000000463"
   }
 ]
