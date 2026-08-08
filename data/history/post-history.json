@@ -561,5 +561,15 @@
     "status": "failed",
     "id": "f16148b3-3bef-4aea-9a18-a62aaf03f69a",
     "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2608/08/news011.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2608/08/2000000459/",
+    "title": "OpenAI、次期モデル「Astra」の一部開発を停止　「Critical」級サイバー能力の可能性否定できず",
+    "score": 6.81,
+    "selectedAt": "2026-08-08T14:08:28.466Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "455e6e40-420a-48f4-a008-285c004c5fa7",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/08/2000000459"
   }
 ]
