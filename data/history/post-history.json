@@ -551,5 +551,15 @@
     "status": "failed",
     "id": "eb804ac4-9962-4dd8-b4d8-422ec71835fc",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/08/2000000460"
+  },
+  {
+    "url": "https://atmarkit.itmedia.co.jp/ait/articles/2608/08/news011.html",
+    "title": "Google Chromeの新機能「Skills」　AIプロンプトの“毎回手打ち”を不要に",
+    "score": 41.27,
+    "selectedAt": "2026-08-08T05:32:08.464Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "f16148b3-3bef-4aea-9a18-a62aaf03f69a",
+    "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2608/08/news011.html"
   }
 ]
