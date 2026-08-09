@@ -591,5 +591,15 @@
     "status": "failed",
     "id": "49e576af-940c-4dcd-adfe-a47e947a4f81",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/09/2000000465"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/09/2000000466/",
+    "title": "「Claude Code」にセッション同士がメッセージを送り合う機能　macOSとLinuxに",
+    "score": 12.68,
+    "selectedAt": "2026-08-09T14:10:00.104Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "3789a7d9-884b-4106-91bb-49b4d16d340c",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/09/2000000466"
   }
 ]
