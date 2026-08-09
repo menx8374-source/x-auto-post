@@ -581,5 +581,15 @@
     "status": "failed",
     "id": "fc21f0d0-15d8-42f2-a09b-3345d0d8c3be",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/09/2000000463"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/09/2000000465/",
+    "title": "「Claude Code」、AIが権限確認を代行する「auto mode」がデフォルトに　8月14日から",
+    "score": 35.53,
+    "selectedAt": "2026-08-09T05:56:10.983Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "49e576af-940c-4dcd-adfe-a47e947a4f81",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/09/2000000465"
   }
 ]
