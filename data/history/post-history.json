@@ -601,5 +601,15 @@
     "status": "failed",
     "id": "3789a7d9-884b-4106-91bb-49b4d16d340c",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/09/2000000466"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/business/articles/2608/10/news028.html",
+    "title": "Salesforce「サポート部門9000→5000人」は人員削減ではない　AI時代に生き残る“配置転換”",
+    "score": 42.66,
+    "selectedAt": "2026-08-10T00:01:20.155Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "c31629bb-ad17-4580-9d0d-c359c15e373a",
+    "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/10/news028.html"
   }
 ]
