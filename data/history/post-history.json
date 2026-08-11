@@ -611,5 +611,15 @@
     "status": "failed",
     "id": "c31629bb-ad17-4580-9d0d-c359c15e373a",
     "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/10/news028.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/enterprise/articles/2608/10/news078.html",
+    "title": "2028年にSOCの人手対応、30％減へ　常態化する攻撃に企業は勝てるのか",
+    "score": 43.83,
+    "selectedAt": "2026-08-11T00:03:19.701Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "a3061ee6-7ad5-4f2b-bccb-f73369b3ab80",
+    "normalizedUrl": "https://www.itmedia.co.jp/enterprise/articles/2608/10/news078.html"
   }
 ]
