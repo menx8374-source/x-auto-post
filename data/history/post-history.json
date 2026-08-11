@@ -621,5 +621,15 @@
     "status": "failed",
     "id": "a3061ee6-7ad5-4f2b-bccb-f73369b3ab80",
     "normalizedUrl": "https://www.itmedia.co.jp/enterprise/articles/2608/10/news078.html"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/114560",
+    "title": "🔒 コードを「画像」で送るとAIが数える入力トークンは確かに減る！ただし見逃せない注意点あり",
+    "score": 48.21,
+    "selectedAt": "2026-08-11T06:07:34.396Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "ba01cb6b-4fec-4c70-9627-1e93452b8500",
+    "normalizedUrl": "https://ai-data-base.com/archives/114560"
   }
 ]
