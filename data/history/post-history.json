@@ -631,5 +631,15 @@
     "status": "failed",
     "id": "ba01cb6b-4fec-4c70-9627-1e93452b8500",
     "normalizedUrl": "https://ai-data-base.com/archives/114560"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/12/2000000504/",
+    "title": "ChatGPTデスクトップアプリにLinux版　「お待たせ。MacBookはキャンセルしていいよ」",
+    "score": 48.1,
+    "selectedAt": "2026-08-12T05:12:22.466Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "9e69cf2d-758a-4a2d-8492-be3c1b51dd98",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/12/2000000504"
   }
 ]
