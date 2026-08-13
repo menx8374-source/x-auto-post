@@ -651,5 +651,15 @@
     "status": "failed",
     "id": "1e084e78-cb9c-4602-a4f0-c673bdf91f16",
     "normalizedUrl": "https://ai-data-base.com/archives/114845"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/business/articles/2608/14/news040.html",
+    "title": "データセンターが“アツい”――「潜入レポート」「フジクラ取材」など注目記事5選（2026年前半版）",
+    "score": 45.1,
+    "selectedAt": "2026-08-13T23:19:36.394Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "30757cb4-3cd3-4bf9-8d70-d02bb32e315a",
+    "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/14/news040.html"
   }
 ]
