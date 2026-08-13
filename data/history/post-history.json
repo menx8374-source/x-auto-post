@@ -641,5 +641,15 @@
     "status": "failed",
     "id": "9e69cf2d-758a-4a2d-8492-be3c1b51dd98",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/12/2000000504"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/114845",
+    "title": "🔒 AIエージェントには「いつやめてよいか」まで指示したほうがいい",
+    "score": 40.11,
+    "selectedAt": "2026-08-13T05:19:36.067Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "1e084e78-cb9c-4602-a4f0-c673bdf91f16",
+    "normalizedUrl": "https://ai-data-base.com/archives/114845"
   }
 ]
