@@ -681,5 +681,15 @@
     "status": "failed",
     "id": "a1731c37-0efe-475e-8604-929494ce18bb",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/14/2000000548"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/15/2000000554/",
+    "title": "「Qwen3.8-27B」ウェイト公開　一部「Opus 4.6 Max」超えか　ライセンスは商用可のApache 2.0",
+    "score": 25.38,
+    "selectedAt": "2026-08-14T22:51:43.426Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "ea52080a-21ee-431d-8e49-d2930ffeec4b",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/15/2000000554"
   }
 ]
