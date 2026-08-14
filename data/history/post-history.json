@@ -671,5 +671,15 @@
     "status": "failed",
     "id": "7ee3784e-7cc1-4917-9fad-c2de75eb1166",
     "normalizedUrl": "https://ai-data-base.com/archives/114882"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/14/2000000548/",
+    "title": "ChatGPTがPC操作を自動で記録、コンテキストとして利用可能に　Mac版デスクトップアプリで提供",
+    "score": 38.87,
+    "selectedAt": "2026-08-14T13:34:50.334Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "a1731c37-0efe-475e-8604-929494ce18bb",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/14/2000000548"
   }
 ]
