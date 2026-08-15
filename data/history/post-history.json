@@ -711,5 +711,15 @@
     "status": "failed",
     "id": "8107fa80-8783-41b2-ba2f-95c3b25b5416",
     "normalizedUrl": "https://ai-data-base.com/archives/114887"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2608/14/2000000538/",
+    "title": "AIエージェント同士が“縄張り争い”、マルウェアで妨害も　Anthropicがマルチエージェント実験の結果を公開",
+    "score": 0.16,
+    "selectedAt": "2026-08-15T22:49:43.432Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "11833415-1aad-414b-b61b-f9722544f592",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/14/2000000538"
   }
 ]
