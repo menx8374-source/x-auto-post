@@ -691,5 +691,15 @@
     "status": "failed",
     "id": "ea52080a-21ee-431d-8e49-d2930ffeec4b",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/15/2000000554"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/14/2000000545/",
+    "title": "GPT-5.6 Solの「超高速モード」ついに実装　「品質損なわず14倍高速」うたう",
+    "score": 3.91,
+    "selectedAt": "2026-08-15T03:55:46.589Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "f7366509-cd62-4f55-9679-f31979bd2ef5",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/14/2000000545"
   }
 ]
