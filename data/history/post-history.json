@@ -701,5 +701,15 @@
     "status": "failed",
     "id": "f7366509-cd62-4f55-9679-f31979bd2ef5",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/14/2000000545"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/114887",
+    "title": "🔒 AIの使い方を見直したら、39組織中34組織が「安いモデルで十分」だった【論文著者研究者コメント掲載】",
+    "score": 0.98,
+    "selectedAt": "2026-08-15T12:55:13.927Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "8107fa80-8783-41b2-ba2f-95c3b25b5416",
+    "normalizedUrl": "https://ai-data-base.com/archives/114887"
   }
 ]
