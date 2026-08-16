@@ -741,5 +741,15 @@
     "status": "failed",
     "id": "df85da35-000a-4fef-b0b7-840d9b447a06",
     "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/14/news053.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/business/articles/2608/17/news037.html",
+    "title": "「欧州のAI主権」任された“34歳の天才”　パリの新星、AI企業Mistralは「救世主」になれるのか",
+    "score": 45.16,
+    "selectedAt": "2026-08-16T22:48:56.777Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "a46d189b-f9c8-4814-8e3e-267a6013f797",
+    "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/17/news037.html"
   }
 ]
