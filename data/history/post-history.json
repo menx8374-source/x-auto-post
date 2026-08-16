@@ -731,5 +731,15 @@
     "status": "failed",
     "id": "13ef1893-91ef-41c7-8962-1f23d5903750",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/16/2000000555"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/business/articles/2608/14/news053.html",
+    "title": "“梅干し職人”のためツール自作　老舗漬物店のClaude活用、「チャット+コピペ」で成果を出せたワケ",
+    "score": 0.02,
+    "selectedAt": "2026-08-16T12:56:48.162Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "df85da35-000a-4fef-b0b7-840d9b447a06",
+    "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/14/news053.html"
   }
 ]
