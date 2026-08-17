@@ -751,5 +751,15 @@
     "status": "failed",
     "id": "a46d189b-f9c8-4814-8e3e-267a6013f797",
     "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/17/news037.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/17/2000000441/",
+    "title": "なぜPFNは「国産AI」をゼロから開発するのか　担当者に聞く“自家製ならではの利点”",
+    "score": 43.75,
+    "selectedAt": "2026-08-17T04:04:12.404Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "93ba08fc-8403-440a-b283-066f9a13026e",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/17/2000000441"
   }
 ]
