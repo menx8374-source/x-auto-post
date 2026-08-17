@@ -761,5 +761,15 @@
     "status": "failed",
     "id": "93ba08fc-8403-440a-b283-066f9a13026e",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/17/2000000441"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/114950",
+    "title": "🔒 AIエージェントに経営を任せると、モデルごとに「商売のクセ」がある",
+    "score": 24.32,
+    "selectedAt": "2026-08-17T13:02:18.906Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "4dc8a7ba-b5b7-4081-974e-24fd306ab7a9",
+    "normalizedUrl": "https://ai-data-base.com/archives/114950"
   }
 ]
