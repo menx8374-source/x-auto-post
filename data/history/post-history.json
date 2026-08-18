@@ -781,5 +781,15 @@
     "status": "failed",
     "id": "0eb5e838-8bdc-45e5-9f56-d89579a0b130",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/18/2000000572"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/114981",
+    "title": "🔒 14万件のSKILL.mdの9割超に問題",
+    "score": 46.59,
+    "selectedAt": "2026-08-18T03:58:57.318Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "b7e5610a-c5f7-4f4f-bccd-21e0ced0d784",
+    "normalizedUrl": "https://ai-data-base.com/archives/114981"
   }
 ]
