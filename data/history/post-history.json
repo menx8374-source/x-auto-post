@@ -791,5 +791,15 @@
     "status": "failed",
     "id": "b7e5610a-c5f7-4f4f-bccd-21e0ced0d784",
     "normalizedUrl": "https://ai-data-base.com/archives/114981"
+  },
+  {
+    "url": "https://atmarkit.itmedia.co.jp/ait/articles/2608/18/news055.html",
+    "title": "無料で読めるAIエージェントの実践ガイド、Googleが公開　基礎から本番実装まで学べる",
+    "score": 26.56,
+    "selectedAt": "2026-08-18T13:03:40.548Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "fc67d184-0d7d-403a-bfa0-9ebc24f86db4",
+    "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2608/18/news055.html"
   }
 ]
