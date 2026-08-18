@@ -801,5 +801,15 @@
     "status": "failed",
     "id": "fc67d184-0d7d-403a-bfa0-9ebc24f86db4",
     "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2608/18/news055.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2608/19/2000000605/",
+    "title": "OpenAI、フロンティアAIの強化学習を一部停止　安全対策を強化",
+    "score": 45.38,
+    "selectedAt": "2026-08-18T22:52:50.073Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "b0182cbc-67f7-4f35-8dfb-60b99b397812",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/19/2000000605"
   }
 ]
