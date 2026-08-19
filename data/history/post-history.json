@@ -811,5 +811,15 @@
     "status": "failed",
     "id": "b0182cbc-67f7-4f35-8dfb-60b99b397812",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/19/2000000605"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/19/2000000615/",
+    "title": "「うちの会社にAIなんて」――謙遜する中小企業に眠る伸びしろ　OpenAIがパートナー網拡充、新規3社が語る",
+    "score": 42.66,
+    "selectedAt": "2026-08-19T03:59:55.941Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "46640e2d-2bbc-4029-82b9-6babe3da3aee",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/19/2000000615"
   }
 ]
