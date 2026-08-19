@@ -831,5 +831,15 @@
     "status": "failed",
     "id": "2a11bb4a-0cb2-42e9-8f3a-ac9229cc7615",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/19/2000000627"
+  },
+  {
+    "url": "https://monoist.itmedia.co.jp/mn/articles/2608/20/news055.html",
+    "title": "Waymoが自動運転AI戦略を解説、「単一AIモデルのE2E方式には2つの問題がある」",
+    "score": 43.43,
+    "selectedAt": "2026-08-19T22:52:44.664Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "f116e0f0-d80a-41bf-b417-a83c02aca9de",
+    "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2608/20/news055.html"
   }
 ]
