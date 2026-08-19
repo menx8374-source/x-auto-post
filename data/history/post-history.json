@@ -821,5 +821,15 @@
     "status": "failed",
     "id": "46640e2d-2bbc-4029-82b9-6babe3da3aee",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/19/2000000615"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/19/2000000627/",
+    "title": "ChatGPTの反論で「道徳的判断」の3割超が覆る　高齢者が説得されやすい傾向　神戸大",
+    "score": 26.56,
+    "selectedAt": "2026-08-19T13:04:29.776Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "2a11bb4a-0cb2-42e9-8f3a-ac9229cc7615",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/19/2000000627"
   }
 ]
