@@ -841,5 +841,15 @@
     "status": "failed",
     "id": "f116e0f0-d80a-41bf-b417-a83c02aca9de",
     "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2608/20/news055.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/20/2000000641/",
+    "title": "「AIで生産性向上」日本の従業員は57％、世界平均は81％　仕事の満足度でも大差──アクセンチュア調査",
+    "score": 45.05,
+    "selectedAt": "2026-08-20T03:59:30.136Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "39c15fcd-14e9-4f79-9164-6ee32da16776",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/20/2000000641"
   }
 ]
