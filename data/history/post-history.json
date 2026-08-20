@@ -851,5 +851,15 @@
     "status": "failed",
     "id": "39c15fcd-14e9-4f79-9164-6ee32da16776",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/20/2000000641"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2608/19/2000000583/",
+    "title": "「害悪すぎる」「バカ迷惑」──嫌われまくる“AI営業電話”、今すぐ取れる自衛策は",
+    "score": 27,
+    "selectedAt": "2026-08-20T13:06:47.523Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "4a0d0cc0-7698-4b52-a541-1645235a8651",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/19/2000000583"
   }
 ]
