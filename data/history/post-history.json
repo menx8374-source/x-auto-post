@@ -861,5 +861,15 @@
     "status": "failed",
     "id": "4a0d0cc0-7698-4b52-a541-1645235a8651",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/19/2000000583"
+  },
+  {
+    "url": "https://kn.itmedia.co.jp/kn/articles/2608/21/news043.html",
+    "title": "ChatGPTに「おすすめの○○は？」　実は答えが決まっているらしい：893rd Lap",
+    "score": 44.41,
+    "selectedAt": "2026-08-20T22:57:00.203Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "3886cf40-6419-4544-8ac7-029dbefd6350",
+    "normalizedUrl": "https://kn.itmedia.co.jp/kn/articles/2608/21/news043.html"
   }
 ]
