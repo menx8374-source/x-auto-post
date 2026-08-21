@@ -891,5 +891,15 @@
     "status": "failed",
     "id": "9909c175-2852-4814-966f-a3d671e6864c",
     "normalizedUrl": "https://ai-data-base.com/archives/115419"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/22/2000000697/",
+    "title": "Anthropic、「ミュトス 5」を脆弱性スキャンに開放──「Claude Security」経由でEnterprise顧客が利用可能に",
+    "score": 45.72,
+    "selectedAt": "2026-08-21T22:52:32.469Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "a6911b14-844c-4c00-b297-9de83258a18d",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/22/2000000697"
   }
 ]
