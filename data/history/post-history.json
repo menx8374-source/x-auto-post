@@ -901,5 +901,15 @@
     "status": "failed",
     "id": "a6911b14-844c-4c00-b297-9de83258a18d",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/22/2000000697"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/115565",
+    "title": "🔒 今週の注目AI論文リスト（論文公開日2026年8月16日〜22日）",
+    "score": 49.05,
+    "selectedAt": "2026-08-22T03:57:13.635Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "43a7ddad-4b48-41dd-a339-ed0e14bcb948",
+    "normalizedUrl": "https://ai-data-base.com/archives/115565"
   }
 ]
