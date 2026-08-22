@@ -911,5 +911,15 @@
     "status": "failed",
     "id": "43a7ddad-4b48-41dd-a339-ed0e14bcb948",
     "normalizedUrl": "https://ai-data-base.com/archives/115565"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/21/2000000684/",
+    "title": "エイベックス松浦会長「AIで仕事が楽になると思ってたけど、真逆」　note記事作成の“苦労”明かす",
+    "score": 1.37,
+    "selectedAt": "2026-08-22T12:56:29.524Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "9367f1da-74c1-4b0e-a7f7-c4b08542a004",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/21/2000000684"
   }
 ]
