@@ -951,5 +951,15 @@
     "status": "failed",
     "id": "f140b9ce-cfbf-4def-b2ac-b59bd0c8228a",
     "normalizedUrl": "https://ai-data-base.com/archives/115024"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/business/articles/2608/24/news058.html",
+    "title": "「社内用語」がAI分析を邪魔する……ニトリが“力技”で解決　「赤羽店の寝具の売上高を出して」可能にできたワケ",
+    "score": 46.02,
+    "selectedAt": "2026-08-23T22:49:52.367Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "dddd41ec-16ea-48c0-be2d-3d864689de29",
+    "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/24/news058.html"
   }
 ]
