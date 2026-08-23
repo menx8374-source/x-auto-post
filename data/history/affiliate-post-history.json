@@ -200,5 +200,13 @@
     "slot": "affiliate",
     "status": "failed",
     "id": "a0fb7555-6799-479b-b480-0b1ac51dde52"
+  },
+  {
+    "productId": "zenchord1",
+    "productName": "ZENCHORD1(AI議事録イヤホン)",
+    "selectedAt": "2026-08-23T10:30:16.279Z",
+    "slot": "affiliate",
+    "status": "failed",
+    "id": "2cdc9563-3976-482b-8bbe-9d637ef419b8"
   }
 ]
