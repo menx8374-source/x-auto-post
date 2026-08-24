@@ -971,5 +971,15 @@
     "status": "failed",
     "id": "e1d3e561-795f-4c90-b1fc-a1886473af26",
     "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2608/24/news020.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/24/2000000719/",
+    "title": "【復旧済み】「Claude」で障害発生中",
+    "score": 29.49,
+    "selectedAt": "2026-08-24T13:08:46.047Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "7180ad47-593c-4840-8ce2-624fda3d0bb5",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/24/2000000719"
   }
 ]
