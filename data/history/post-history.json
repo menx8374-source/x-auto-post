@@ -981,5 +981,15 @@
     "status": "failed",
     "id": "7180ad47-593c-4840-8ce2-624fda3d0bb5",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/24/2000000719"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/115405",
+    "title": "🔒 SNSで「いいね」模倣するAIの作り方　個人データ吸収で「あの人」の判断をコピーする",
+    "score": 8.29,
+    "selectedAt": "2026-08-24T22:54:52.784Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "d4965552-443c-469b-8788-2122134aada9",
+    "normalizedUrl": "https://ai-data-base.com/archives/115405"
   }
 ]
