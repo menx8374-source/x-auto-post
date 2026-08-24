@@ -961,5 +961,15 @@
     "status": "failed",
     "id": "dddd41ec-16ea-48c0-be2d-3d864689de29",
     "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/24/news058.html"
+  },
+  {
+    "url": "https://monoist.itmedia.co.jp/mn/articles/2608/24/news020.html",
+    "title": "AI×設計開発ニュースまとめ（2026年5～6月）",
+    "score": 46.32,
+    "selectedAt": "2026-08-24T04:06:48.341Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "e1d3e561-795f-4c90-b1fc-a1886473af26",
+    "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2608/24/news020.html"
   }
 ]
