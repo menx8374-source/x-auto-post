@@ -1001,5 +1001,15 @@
     "status": "failed",
     "id": "99acf1b7-2d28-4385-a1e3-0fd99810b3f3",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/25/2000000731"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/25/2000000767/",
+    "title": "政府、AI事業者向け「知財保護ルール」策定　対象範囲・運用方針は？",
+    "score": 35.99,
+    "selectedAt": "2026-08-25T13:06:10.965Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "596dea33-bc33-45f5-8d8e-cb0018105f1f",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/25/2000000767"
   }
 ]
