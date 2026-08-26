@@ -1021,5 +1021,15 @@
     "status": "failed",
     "id": "63de6b45-c418-46dd-99e0-3b34f42db56f",
     "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2608/26/news007.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2608/26/2000000788/",
+    "title": "ChatGPT Work、ログイン必要なサイトも操作可能に　「パスワードは一切見ない」",
+    "score": 40.93,
+    "selectedAt": "2026-08-26T04:04:05.559Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "a80b8b36-caa8-4238-93d6-8c55349b8fa8",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/26/2000000788"
   }
 ]
