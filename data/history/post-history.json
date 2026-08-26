@@ -1031,5 +1031,15 @@
     "status": "failed",
     "id": "a80b8b36-caa8-4238-93d6-8c55349b8fa8",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2608/26/2000000788"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/business/articles/2608/26/news082.html",
+    "title": "非公開の「AI学習データ工場」に潜入　人型ロボ30台超が稼働、意外と知らない「データ収集」の裏側とは",
+    "score": 30.26,
+    "selectedAt": "2026-08-26T13:11:04.933Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "49bf9d3f-4b3e-46f9-a6d3-a733607125bf",
+    "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/26/news082.html"
   }
 ]
