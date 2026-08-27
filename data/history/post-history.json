@@ -1041,5 +1041,15 @@
     "status": "failed",
     "id": "49bf9d3f-4b3e-46f9-a6d3-a733607125bf",
     "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2608/26/news082.html"
+  },
+  {
+    "url": "https://eetimes.itmedia.co.jp/ee/articles/2608/27/news061.html",
+    "title": "ヒューマノイド開発、「標準インタフェース」が不可欠に",
+    "score": 41.53,
+    "selectedAt": "2026-08-27T03:29:09.946Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "e866429b-4f77-4c79-bd84-eaefa17d5de4",
+    "normalizedUrl": "https://eetimes.itmedia.co.jp/ee/articles/2608/27/news061.html"
   }
 ]
