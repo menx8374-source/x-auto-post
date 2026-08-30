@@ -1081,5 +1081,15 @@
     "status": "failed",
     "id": "749a4b26-0e5d-4b1a-85aa-8408609e5910",
     "normalizedUrl": "https://ai-data-base.com/archives/117074"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2608/30/2000000945/",
+    "title": "OpenAI、Cursorへのモデル提供を11月12日に終了　SpaceXによる買収が理由",
+    "score": 42.04,
+    "selectedAt": "2026-08-30T00:35:38.234Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "ced8dc9e-ece5-4856-b38e-689b131e827c",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/30/2000000945"
   }
 ]
