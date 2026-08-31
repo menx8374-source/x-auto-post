@@ -1091,5 +1091,15 @@
     "status": "failed",
     "id": "ced8dc9e-ece5-4856-b38e-689b131e827c",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/30/2000000945"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2608/31/2000000950/",
+    "title": "ソニー・ミュージックパブリッシングとワーナー・チャペル、Anthropicを著作権侵害で提訴",
+    "score": 41.83,
+    "selectedAt": "2026-08-31T00:47:11.841Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "cc18b891-cbaa-4210-874e-88d83c314533",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/31/2000000950"
   }
 ]
