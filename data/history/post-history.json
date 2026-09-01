@@ -1101,5 +1101,15 @@
     "status": "failed",
     "id": "cc18b891-cbaa-4210-874e-88d83c314533",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2608/31/2000000950"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2609/01/2000000997/",
+    "title": "「ChatGPT」広告、年換算の売上高10億ドルに　開始200日足らずで達成",
+    "score": 39.38,
+    "selectedAt": "2026-09-01T01:22:12.263Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "836f5b25-8be9-46b9-9729-b524fa02b9d8",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/01/2000000997"
   }
 ]
