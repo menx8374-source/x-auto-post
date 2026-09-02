@@ -1111,5 +1111,15 @@
     "status": "failed",
     "id": "836f5b25-8be9-46b9-9729-b524fa02b9d8",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/01/2000000997"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2609/02/2000001048/",
+    "title": "Anthropic、「Claude Fable 5.1」と「Claude Mythos 5.1」発表　「監視の難しさ」への懸念も開示",
+    "score": 44.44,
+    "selectedAt": "2026-09-02T00:26:08.715Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "1060b1ff-26ee-405b-ac77-697d40dbbee3",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/02/2000001048"
   }
 ]
