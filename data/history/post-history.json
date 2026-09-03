@@ -1121,5 +1121,15 @@
     "status": "failed",
     "id": "1060b1ff-26ee-405b-ac77-697d40dbbee3",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/02/2000001048"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2609/03/2000001096/",
+    "title": "Google、「Gemini 3.8 Flash」公開　3.7から3週間、価格据え置きで防御特化の「Cyber」も",
+    "score": 46.74,
+    "selectedAt": "2026-09-03T00:32:06.203Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "e7550cd5-ef5d-4b86-bd55-45a8ce5e40f2",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2609/03/2000001096"
   }
 ]
