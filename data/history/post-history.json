@@ -1131,5 +1131,15 @@
     "status": "failed",
     "id": "e7550cd5-ef5d-4b86-bd55-45a8ce5e40f2",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2609/03/2000001096"
+  },
+  {
+    "url": "https://monoist.itmedia.co.jp/mn/articles/2609/04/news033.html",
+    "title": "AIで2D図面を3D CADモデル化、アセンブリからバラシ図面の作成も",
+    "score": 44.87,
+    "selectedAt": "2026-09-04T00:22:03.659Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "add516f3-ae25-4d2d-b9c8-47ffc4a247a7",
+    "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2609/04/news033.html"
   }
 ]
