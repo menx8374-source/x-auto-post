@@ -1141,5 +1141,15 @@
     "status": "failed",
     "id": "add516f3-ae25-4d2d-b9c8-47ffc4a247a7",
     "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2609/04/news033.html"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/118483",
+    "title": "🔒 人間が作るスキルにも負けない品質のスキルを自動生成する手法【論文著者の独自コメント掲載】",
+    "score": 4.58,
+    "selectedAt": "2026-09-05T00:17:57.471Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "bf16642f-5f1c-46ca-a32d-4ddc8cc309d1",
+    "normalizedUrl": "https://ai-data-base.com/archives/118483"
   }
 ]
