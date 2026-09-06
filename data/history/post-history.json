@@ -1151,5 +1151,15 @@
     "status": "failed",
     "id": "bf16642f-5f1c-46ca-a32d-4ddc8cc309d1",
     "normalizedUrl": "https://ai-data-base.com/archives/118483"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2609/06/2000001202/",
+    "title": "OpenAI、休眠サイトへの自社AIエージェント書き込みを認め、非公表の理由を説明",
+    "score": 41.09,
+    "selectedAt": "2026-09-06T00:09:31.426Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "fabbf4ed-955f-4059-907c-460c01f59229",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/06/2000001202"
   }
 ]
