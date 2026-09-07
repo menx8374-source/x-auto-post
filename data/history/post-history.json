@@ -1161,5 +1161,15 @@
     "status": "failed",
     "id": "fabbf4ed-955f-4059-907c-460c01f59229",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/06/2000001202"
+  },
+  {
+    "url": "https://atmarkit.itmedia.co.jp/ait/articles/2609/07/news031.html",
+    "title": "Google「Gemini 3.8 Flash」発表　プロンプト1つで3Dゲーム生成、価格据え置きで大規模モデルに迫る",
+    "score": 42.86,
+    "selectedAt": "2026-09-07T00:14:01.364Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "3768b29b-dee6-4c1d-bc9a-6519c26227af",
+    "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2609/07/news031.html"
   }
 ]
