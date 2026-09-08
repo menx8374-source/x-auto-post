@@ -1171,5 +1171,15 @@
     "status": "failed",
     "id": "3768b29b-dee6-4c1d-bc9a-6519c26227af",
     "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2609/07/news031.html"
+  },
+  {
+    "url": "https://monoist.itmedia.co.jp/mn/articles/2609/08/news032.html",
+    "title": "図面探しや検図の悩みをAIで支援、製造業の現場課題に対応する新ソリューション",
+    "score": 46.25,
+    "selectedAt": "2026-09-08T00:37:30.526Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "b372a1e6-fc94-4c8f-9752-a9a4e343ce62",
+    "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2609/08/news032.html"
   }
 ]
