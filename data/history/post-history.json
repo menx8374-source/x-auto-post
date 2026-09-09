@@ -1181,5 +1181,15 @@
     "status": "failed",
     "id": "b372a1e6-fc94-4c8f-9752-a9a4e343ce62",
     "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2609/08/news032.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2609/09/2000001296/",
+    "title": "Google DeepMind、90億通りの全塩基変異の影響を予測した「AlphaGenome Atlas」　学術向けに無償提供",
+    "score": 42.81,
+    "selectedAt": "2026-09-09T00:28:22.972Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "5fec6c3e-3172-4d3d-94ce-a284885bb74a",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/09/2000001296"
   }
 ]
