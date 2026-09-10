@@ -1191,5 +1191,15 @@
     "status": "failed",
     "id": "5fec6c3e-3172-4d3d-94ce-a284885bb74a",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/09/2000001296"
+  },
+  {
+    "url": "https://atmarkit.itmedia.co.jp/ait/articles/2609/10/news027.html",
+    "title": "ルールを作る「管理職」ほどシャドーAI　「AI白書2026」調査が映す“ガイドライン”の限界",
+    "score": 41.63,
+    "selectedAt": "2026-09-10T00:28:00.111Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "a8a0df95-c373-4e64-83d7-e98d46947e97",
+    "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2609/10/news027.html"
   }
 ]
