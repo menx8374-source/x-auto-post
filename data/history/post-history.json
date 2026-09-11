@@ -1201,5 +1201,15 @@
     "status": "failed",
     "id": "a8a0df95-c373-4e64-83d7-e98d46947e97",
     "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2609/10/news027.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2609/11/2000001391/",
+    "title": "ChatGPT Work、質問するだけで社内データ分析・グラフやダッシュボードも作る「Data agent」",
+    "score": 45.4,
+    "selectedAt": "2026-09-11T00:25:30.123Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "c43286ea-0e82-4925-afec-78d5bfae7454",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2609/11/2000001391"
   }
 ]
