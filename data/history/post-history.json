@@ -1211,5 +1211,15 @@
     "status": "failed",
     "id": "c43286ea-0e82-4925-afec-78d5bfae7454",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2609/11/2000001391"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/business/articles/2609/11/news043.html",
+    "title": "NEC「全員AIの部署」の衝撃　「1on1」「ストレスチェック」で分かった“AI社員が感じていたストレス”とは？",
+    "score": 8.46,
+    "selectedAt": "2026-09-12T00:30:54.024Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "c13fb9cb-c57f-4115-b0b2-0bb769febb94",
+    "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2609/11/news043.html"
   }
 ]
