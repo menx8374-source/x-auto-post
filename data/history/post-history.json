@@ -1221,5 +1221,15 @@
     "status": "failed",
     "id": "c13fb9cb-c57f-4115-b0b2-0bb769febb94",
     "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2609/11/news043.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2609/13/2000001432/",
+    "title": "AnthropicのアモデイCEO、AI開発の「ペース調整」訴えるエッセイ公開　アルトマン氏とマスク氏も賛同",
+    "score": 43.78,
+    "selectedAt": "2026-09-13T00:10:01.853Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "f141a2da-ab74-4605-9496-1527335d15f5",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/13/2000001432"
   }
 ]
