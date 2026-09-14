@@ -1231,5 +1231,15 @@
     "status": "failed",
     "id": "f141a2da-ab74-4605-9496-1527335d15f5",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/13/2000001432"
+  },
+  {
+    "url": "https://monoist.itmedia.co.jp/mn/articles/2609/14/news041.html",
+    "title": "日立HMAX新技術「AIオーケストレーション」、特急注文など部門間調整を自動化",
+    "score": 44.91,
+    "selectedAt": "2026-09-14T00:21:33.651Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "191e30a5-27c5-417f-abe1-e886fa7a53e5",
+    "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2609/14/news041.html"
   }
 ]
