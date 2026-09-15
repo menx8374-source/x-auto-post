@@ -1241,5 +1241,15 @@
     "status": "failed",
     "id": "191e30a5-27c5-417f-abe1-e886fa7a53e5",
     "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2609/14/news041.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2609/15/2000001470/",
+    "title": "トランプ大統領、アモデイ氏を名指しで「完璧な小さい天使のふり」　「AIに必要なガードレールは強く賢い大統領だけ」",
+    "score": 41.02,
+    "selectedAt": "2026-09-15T00:50:26.440Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "82f5efe2-f213-4595-babf-e1cd54e220ab",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/15/2000001470"
   }
 ]
