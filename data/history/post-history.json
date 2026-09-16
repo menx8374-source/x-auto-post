@@ -1251,5 +1251,15 @@
     "status": "failed",
     "id": "82f5efe2-f213-4595-babf-e1cd54e220ab",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/15/2000001470"
+  },
+  {
+    "url": "https://monoist.itmedia.co.jp/mn/articles/2609/16/news023.html",
+    "title": "CAE結果からサロゲートモデルを自動構築、予測から最適化までノーコードで",
+    "score": 45.75,
+    "selectedAt": "2026-09-16T00:42:42.509Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "40715f73-a491-4dc4-92f2-cccb44296ff3",
+    "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2609/16/news023.html"
   }
 ]
