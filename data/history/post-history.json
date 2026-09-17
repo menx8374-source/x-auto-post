@@ -1261,5 +1261,15 @@
     "status": "failed",
     "id": "40715f73-a491-4dc4-92f2-cccb44296ff3",
     "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2609/16/news023.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2609/17/2000001565/",
+    "title": "Anthropic、Claudeの「チャット」と「Cowork」を統合　資料作成の「Docs」「Slides」も",
+    "score": 40.32,
+    "selectedAt": "2026-09-17T00:48:58.645Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "da920e0c-0370-4a2c-a687-a65da3bf6655",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/17/2000001565"
   }
 ]
