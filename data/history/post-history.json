@@ -1271,5 +1271,15 @@
     "status": "failed",
     "id": "da920e0c-0370-4a2c-a687-a65da3bf6655",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/17/2000001565"
+  },
+  {
+    "url": "https://monoist.itmedia.co.jp/mn/articles/2609/18/news015.html",
+    "title": "自然言語や画像から3D CADモデルを生成、資金調達で開発と海外展開を加速",
+    "score": 45.82,
+    "selectedAt": "2026-09-18T00:42:01.002Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "bc6049ac-8b75-472c-b3de-df02210e04a4",
+    "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2609/18/news015.html"
   }
 ]
