@@ -1281,5 +1281,15 @@
     "status": "failed",
     "id": "bc6049ac-8b75-472c-b3de-df02210e04a4",
     "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2609/18/news015.html"
+  },
+  {
+    "url": "https://kn.itmedia.co.jp/kn/article/2609/19/2000001616/",
+    "title": "「規定を探す時間」をAIで短縮　豊川信用金庫が生成AIを職員のFAQに活用",
+    "score": 36.46,
+    "selectedAt": "2026-09-19T00:31:37.317Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "3ba6a887-fc70-45a8-b67f-99626ccdfa5f",
+    "normalizedUrl": "https://kn.itmedia.co.jp/kn/article/2609/19/2000001616"
   }
 ]
