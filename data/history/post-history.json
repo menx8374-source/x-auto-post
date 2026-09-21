@@ -1301,5 +1301,15 @@
     "status": "failed",
     "id": "549188e2-18a8-4601-ae93-56f7975ebc27",
     "normalizedUrl": "https://kn.itmedia.co.jp/kn/article/2609/20/2000001626"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/business/articles/2609/21/news024.html",
+    "title": "エヌビディアCEO「誰かと夕食をすると、その翌日に相手の株価が2倍になる」　GPUを巡る巨額マネーの行方",
+    "score": 41.85,
+    "selectedAt": "2026-09-21T00:25:26.019Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "f536ab2e-6778-446b-b050-d50933cb059c",
+    "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2609/21/news024.html"
   }
 ]
