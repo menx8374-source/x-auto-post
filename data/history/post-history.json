@@ -1311,5 +1311,15 @@
     "status": "failed",
     "id": "f536ab2e-6778-446b-b050-d50933cb059c",
     "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2609/21/news024.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2609/22/2000001668/",
+    "title": "SpaceXAI、「Grok 4.7」発表　コーディングと知識労働向けで同社最高性能、価格は据え置き",
+    "score": 42.63,
+    "selectedAt": "2026-09-22T01:03:21.000Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "a93bb400-b864-4e11-a28e-ac3e0c17dde0",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/22/2000001668"
   }
 ]
