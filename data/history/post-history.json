@@ -1321,5 +1321,15 @@
     "status": "failed",
     "id": "a93bb400-b864-4e11-a28e-ac3e0c17dde0",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/22/2000001668"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2609/23/2000001674/",
+    "title": "OpenAI、「GPT-6 Sol」と「GPT-6 Luna」公開　API料金は前世代の半額に",
+    "score": 46.04,
+    "selectedAt": "2026-09-23T00:51:43.830Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "c4b7515b-0713-437b-ad2f-123c01123a02",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/23/2000001674"
   }
 ]
