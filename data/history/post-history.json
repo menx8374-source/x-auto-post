@@ -1331,5 +1331,15 @@
     "status": "failed",
     "id": "c4b7515b-0713-437b-ad2f-123c01123a02",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/23/2000001674"
+  },
+  {
+    "url": "https://atmarkit.itmedia.co.jp/ait/articles/2609/24/news024.html",
+    "title": "Claudeがブラウザを自律操作する「Claude in Chrome」一般提供　プロンプトインジェクションをどう防ぐ？",
+    "score": 40.05,
+    "selectedAt": "2026-09-24T00:46:31.431Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "a1d74680-a54a-4b75-ab7f-7503df73c377",
+    "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2609/24/news024.html"
   }
 ]
