@@ -1361,5 +1361,15 @@
     "status": "failed",
     "id": "78997d9b-f053-451d-ae0d-ed662ba85407",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2609/26/2000001774"
+  },
+  {
+    "url": "https://kn.itmedia.co.jp/kn/article/2609/27/2000001764/",
+    "title": "NTTドコモ、「正しく質問させる」をやめ、“聞き返すAI”で変える顧客対応",
+    "score": 35.22,
+    "selectedAt": "2026-09-27T00:48:17.092Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "235ad477-14f6-47bf-8ae4-b39f1235f5f4",
+    "normalizedUrl": "https://kn.itmedia.co.jp/kn/article/2609/27/2000001764"
   }
 ]
