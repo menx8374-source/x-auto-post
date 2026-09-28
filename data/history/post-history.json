@@ -1371,5 +1371,15 @@
     "status": "failed",
     "id": "235ad477-14f6-47bf-8ae4-b39f1235f5f4",
     "normalizedUrl": "https://kn.itmedia.co.jp/kn/article/2609/27/2000001764"
+  },
+  {
+    "url": "https://atmarkit.itmedia.co.jp/ait/articles/2609/28/news036.html",
+    "title": "「AIがSaaSを消す」は根本的な誤解　IDCが示す“本当に起こる変化”とは",
+    "score": 38.58,
+    "selectedAt": "2026-09-28T01:04:28.715Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "3b3b4a99-bdd6-4ba4-ab5f-bf26461dccc9",
+    "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2609/28/news036.html"
   }
 ]
