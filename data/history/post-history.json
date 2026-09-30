@@ -1381,5 +1381,15 @@
     "status": "failed",
     "id": "3b3b4a99-bdd6-4ba4-ab5f-bf26461dccc9",
     "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2609/28/news036.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2609/30/2000001871/",
+    "title": "AI企業トップらと昼食会のトランプ米大統領、政府内で「AI」を「SI」と呼び替える大統領令に署名",
+    "score": 41.39,
+    "selectedAt": "2026-09-30T01:27:22.197Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "9261b45d-1c34-4714-854f-8a065ab98445",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2609/30/2000001871"
   }
 ]
