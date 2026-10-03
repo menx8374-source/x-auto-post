@@ -1401,5 +1401,15 @@
     "status": "failed",
     "id": "2fb0b8d8-8541-4e46-8ede-247111524604",
     "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2610/01/news015.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2610/03/2000001983/",
+    "title": "Apple、macOSの「フルディスクアクセス」に追加の制御を導入へ　「AIエージェントの進化でリスクが大幅に増大」",
+    "score": 45.8,
+    "selectedAt": "2026-10-03T01:20:16.004Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "06881c64-bc02-473a-9ee3-066116816317",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2610/03/2000001983"
   }
 ]
