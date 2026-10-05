@@ -1411,5 +1411,15 @@
     "status": "failed",
     "id": "06881c64-bc02-473a-9ee3-066116816317",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2610/03/2000001983"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2610/05/2000001937/",
+    "title": "「現場任せのAI活用」が失敗するこれだけの理由　経営層がすべき“頭の中”の言語化とは",
+    "score": 35.92,
+    "selectedAt": "2026-10-05T01:08:52.453Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "de4f2fcc-a1fe-414f-b6e9-4289af479f22",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2610/05/2000001937"
   }
 ]
