@@ -1421,5 +1421,15 @@
     "status": "failed",
     "id": "de4f2fcc-a1fe-414f-b6e9-4289af479f22",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2610/05/2000001937"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/134721",
+    "title": "🔒 今週の注目AI論文リスト（論文公開日2026年10月4日〜10月10日）",
+    "score": 6.65,
+    "selectedAt": "2026-10-11T01:10:42.631Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "b917b8b9-9a9e-4861-8d5d-cd0d9af8dac4",
+    "normalizedUrl": "https://ai-data-base.com/archives/134721"
   }
 ]
