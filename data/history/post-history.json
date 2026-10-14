@@ -1431,5 +1431,15 @@
     "status": "failed",
     "id": "b917b8b9-9a9e-4861-8d5d-cd0d9af8dac4",
     "normalizedUrl": "https://ai-data-base.com/archives/134721"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2610/14/2000002241/",
+    "title": "Googleの新モデル「Gemini 4 Argon」一般提供開始　使えるプラン、価格",
+    "score": 44.98,
+    "selectedAt": "2026-10-14T01:20:41.532Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "eef320e4-b9bc-44f1-bfce-c5d1578934b4",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2610/14/2000002241"
   }
 ]
