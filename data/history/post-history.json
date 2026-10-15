@@ -1441,5 +1441,15 @@
     "status": "failed",
     "id": "eef320e4-b9bc-44f1-bfce-c5d1578934b4",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2610/14/2000002241"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2610/15/2000002284/",
+    "title": "国内WebサイトへのAIエージェント攻撃を観測　「8時間弱」続いた攻撃の推移を公開　国内セキュリティベンダー",
+    "score": 46.07,
+    "selectedAt": "2026-10-15T00:45:29.492Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "4a8af41c-3e84-4bb2-9a3b-6458ca201e13",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2610/15/2000002284"
   }
 ]
