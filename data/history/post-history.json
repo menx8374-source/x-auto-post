@@ -1451,5 +1451,15 @@
     "status": "failed",
     "id": "4a8af41c-3e84-4bb2-9a3b-6458ca201e13",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2610/15/2000002284"
+  },
+  {
+    "url": "https://monoist.itmedia.co.jp/mn/articles/2610/16/news017.html",
+    "title": "日本に本当に勝ち筋はあるのか　ヒューマノイド「解剖」で見る中国の強さと課題",
+    "score": 40.74,
+    "selectedAt": "2026-10-16T00:38:22.421Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "d10da25c-ef3f-4352-b2da-4c7131d5937c",
+    "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2610/16/news017.html"
   }
 ]
