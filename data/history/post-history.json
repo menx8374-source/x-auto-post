@@ -1461,5 +1461,15 @@
     "status": "failed",
     "id": "d10da25c-ef3f-4352-b2da-4c7131d5937c",
     "normalizedUrl": "https://monoist.itmedia.co.jp/mn/articles/2610/16/news017.html"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/135209",
+    "title": "🔒 AIに大量の文章を「まとめて」と頼むたびに結論が変わるのを、ほぼ止める",
+    "score": 5.48,
+    "selectedAt": "2026-10-17T00:42:34.357Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "345d7f94-c207-4f90-b1d9-dc05fe6d9a18",
+    "normalizedUrl": "https://ai-data-base.com/archives/135209"
   }
 ]
