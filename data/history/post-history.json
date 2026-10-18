@@ -1471,5 +1471,15 @@
     "status": "failed",
     "id": "345d7f94-c207-4f90-b1d9-dc05fe6d9a18",
     "normalizedUrl": "https://ai-data-base.com/archives/135209"
+  },
+  {
+    "url": "https://atmarkit.itmedia.co.jp/ait/articles/2610/18/news004.html",
+    "title": "「11回止めたのに本番DBが消えた」　AIエージェント“6つの暴走”と、人間の承認を増やしても防げない理由",
+    "score": 43.05,
+    "selectedAt": "2026-10-18T00:11:55.847Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "8f775d08-bea2-4f06-aab8-284fcb4c238f",
+    "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2610/18/news004.html"
   }
 ]
