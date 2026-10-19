@@ -1481,5 +1481,15 @@
     "status": "failed",
     "id": "8f775d08-bea2-4f06-aab8-284fcb4c238f",
     "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2610/18/news004.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2610/19/2000002353/",
+    "title": "Anthropic、社内でAIエージェントの稼働時間が人間の6倍に　技術系初級職の採用比率は27％→9％に激減",
+    "score": 42.21,
+    "selectedAt": "2026-10-19T00:23:34.224Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "e1c03523-d76c-4b38-b549-8345d58a4fa7",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2610/19/2000002353"
   }
 ]
