@@ -1491,5 +1491,15 @@
     "status": "failed",
     "id": "e1c03523-d76c-4b38-b549-8345d58a4fa7",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2610/19/2000002353"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/business/articles/2610/20/news012.html",
+    "title": "「税金で動かす以上……」　政府18万人が使うAI「源内」の「コストに関する工夫」とは",
+    "score": 33.64,
+    "selectedAt": "2026-10-20T01:10:18.259Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "c431b2fd-219b-4764-93d0-613fa47945ee",
+    "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2610/20/news012.html"
   }
 ]
