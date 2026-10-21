@@ -1501,5 +1501,15 @@
     "status": "failed",
     "id": "c431b2fd-219b-4764-93d0-613fa47945ee",
     "normalizedUrl": "https://www.itmedia.co.jp/business/articles/2610/20/news012.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/enterprise/articles/2610/21/news030.html",
+    "title": "「AI活用でIT部門の人員が増える」は本当か？　人材構成の「二重の変化」をGartnerが解説",
+    "score": 45.19,
+    "selectedAt": "2026-10-21T00:48:35.195Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "2644a603-ce0f-4969-b4ee-a2abefeb21de",
+    "normalizedUrl": "https://www.itmedia.co.jp/enterprise/articles/2610/21/news030.html"
   }
 ]
