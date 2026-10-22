@@ -1511,5 +1511,15 @@
     "status": "failed",
     "id": "2644a603-ce0f-4969-b4ee-a2abefeb21de",
     "normalizedUrl": "https://www.itmedia.co.jp/enterprise/articles/2610/21/news030.html"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/aiplus/article/2610/22/2000002487/",
+    "title": "Google Cloudに「Astra」含むOpenAIのモデルが追加　「主要3社のクローズドモデル使える唯一のハイパースケーラー」に",
+    "score": 45.01,
+    "selectedAt": "2026-10-22T00:50:09.827Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "fc8cb8ad-44a6-4d1e-8ca2-7822aa08a9d4",
+    "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2610/22/2000002487"
   }
 ]
