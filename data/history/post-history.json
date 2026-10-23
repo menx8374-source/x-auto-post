@@ -1521,5 +1521,15 @@
     "status": "failed",
     "id": "fc8cb8ad-44a6-4d1e-8ca2-7822aa08a9d4",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2610/22/2000002487"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/enterprise/articles/2610/23/news010.html",
+    "title": "なぜ、重要システムは“分割”すべきなのか？　AI攻撃から守り切れない時代、IT部門が考えるべき「備え」とは",
+    "score": 39.7,
+    "selectedAt": "2026-10-23T00:50:50.573Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "bb1de52f-0fef-499f-a418-535dfd5c742d",
+    "normalizedUrl": "https://www.itmedia.co.jp/enterprise/articles/2610/23/news010.html"
   }
 ]
