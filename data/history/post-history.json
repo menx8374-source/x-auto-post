@@ -1531,5 +1531,15 @@
     "status": "failed",
     "id": "bb1de52f-0fef-499f-a418-535dfd5c742d",
     "normalizedUrl": "https://www.itmedia.co.jp/enterprise/articles/2610/23/news010.html"
+  },
+  {
+    "url": "https://atmarkit.itmedia.co.jp/ait/articles/2610/24/news006.html",
+    "title": "「それは“FDE”ではない、ラベルの貼り替えだ」　結局、割高なベンダー依存から抜け出せない企業の共通点",
+    "score": 40.32,
+    "selectedAt": "2026-10-24T00:58:21.131Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "ce1cd827-5507-4776-9f1c-9a6cd6e2a9b8",
+    "normalizedUrl": "https://atmarkit.itmedia.co.jp/ait/articles/2610/24/news006.html"
   }
 ]
