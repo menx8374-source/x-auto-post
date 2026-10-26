@@ -1551,5 +1551,15 @@
     "status": "failed",
     "id": "d70f140a-d967-4052-880d-69af12a649be",
     "normalizedUrl": "https://ai-data-base.com/archives/141204"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2610/26/2000002570/",
+    "title": "Google、プライバシーポリシーに「Gmail」「Googleフォト」のデータを広告に使う例外を追加　回避方法は",
+    "score": 43.42,
+    "selectedAt": "2026-10-26T00:36:12.086Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "b7fc5acd-d561-49dd-9946-5c0f5cb63738",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2610/26/2000002570"
   }
 ]
