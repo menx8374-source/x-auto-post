@@ -1561,5 +1561,15 @@
     "status": "failed",
     "id": "b7fc5acd-d561-49dd-9946-5c0f5cb63738",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2610/26/2000002570"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2611/01/2000002776/",
+    "title": "AI学習への利用拒否をrobots.txtで一括指定へ　OpenAIやGoogleなどが対応表明",
+    "score": 39.62,
+    "selectedAt": "2026-11-01T01:22:52.544Z",
+    "slot": "morning",
+    "status": "failed",
+    "id": "8ff4972c-4e95-4790-aa74-6e71d2f20279",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2611/01/2000002776"
   }
 ]
