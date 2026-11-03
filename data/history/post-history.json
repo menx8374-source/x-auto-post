@@ -1571,5 +1571,15 @@
     "status": "failed",
     "id": "8ff4972c-4e95-4790-aa74-6e71d2f20279",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2611/01/2000002776"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2611/03/2000002831/",
+    "title": "Anthropic、IPO申請書を修正　7?9月売上高は約170億ドル、インフラ契約額は約8954億ドル",
+    "score": 29.17,
+    "selectedAt": "2026-11-03T03:39:03.838Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "8c23d9c3-087c-4e5c-a688-dc2855b2f41e",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2611/03/2000002831"
   }
 ]
