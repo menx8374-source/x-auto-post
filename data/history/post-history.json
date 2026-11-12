@@ -1591,5 +1591,15 @@
     "status": "failed",
     "id": "b4c68c91-95f3-46e1-8ad9-3f27bb5c6be5",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2611/10/2000003058"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/146869",
+    "title": "🔒 爆増するClaude CodeやCodexのPR、「読まずに承認するだけ」問題に対処する",
+    "score": 48.31,
+    "selectedAt": "2026-11-12T03:16:32.419Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "a123e66a-cea6-4a77-a025-fcfa7e8c165d",
+    "normalizedUrl": "https://ai-data-base.com/archives/146869"
   }
 ]
