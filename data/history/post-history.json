@@ -1601,5 +1601,15 @@
     "status": "failed",
     "id": "a123e66a-cea6-4a77-a025-fcfa7e8c165d",
     "normalizedUrl": "https://ai-data-base.com/archives/146869"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2611/17/2000003241/",
+    "title": "AIに打ち明けた相談は“広告トラッカー”に筒抜け？　ChatGPT、Claude、Gemini含む42サービスを米大が調査",
+    "score": 40.36,
+    "selectedAt": "2026-11-17T04:42:52.652Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "ebfefd86-c297-4156-ac8d-16ad7a0e9d98",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2611/17/2000003241"
   }
 ]
