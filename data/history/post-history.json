@@ -1611,5 +1611,15 @@
     "status": "failed",
     "id": "ebfefd86-c297-4156-ac8d-16ad7a0e9d98",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2611/17/2000003241"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/149377",
+    "title": "🔒 自社サイトの脆弱性を探しに来る攻撃者のAIエージェントを、「本物のデータ」に触れさせず「おとり」へ引きつける方法",
+    "score": 45.24,
+    "selectedAt": "2026-11-18T03:48:06.465Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "22b06fb1-8a0f-4d48-8ac7-34004f59e87e",
+    "normalizedUrl": "https://ai-data-base.com/archives/149377"
   }
 ]
