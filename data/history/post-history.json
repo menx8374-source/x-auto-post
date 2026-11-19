@@ -1621,5 +1621,15 @@
     "status": "failed",
     "id": "22b06fb1-8a0f-4d48-8ac7-34004f59e87e",
     "normalizedUrl": "https://ai-data-base.com/archives/149377"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2611/19/2000003309/",
+    "title": "ちまたの“格安GPT”、中身は偽物？　非公式APIのモデル偽装を調査した結果……",
+    "score": 45.41,
+    "selectedAt": "2026-11-19T03:46:17.891Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "6ec8237b-c09f-4d2b-9026-60cd8476156c",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2611/19/2000003309"
   }
 ]
