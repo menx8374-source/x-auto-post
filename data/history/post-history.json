@@ -1631,5 +1631,15 @@
     "status": "failed",
     "id": "6ec8237b-c09f-4d2b-9026-60cd8476156c",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2611/19/2000003309"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/151477",
+    "title": "🔒 AIのモデルを入れ替えて「ふるまい」や「性能」がガラッと変わる前に“やっておくべき比較テスト”",
+    "score": 45.98,
+    "selectedAt": "2026-11-20T03:40:17.732Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "f50fbad4-85cd-400e-9505-e818f212adc0",
+    "normalizedUrl": "https://ai-data-base.com/archives/151477"
   }
 ]
