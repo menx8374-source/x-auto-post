@@ -1651,5 +1651,15 @@
     "status": "failed",
     "id": "769de376-4529-4a8a-b4a0-750ce3119078",
     "normalizedUrl": "https://www.itmedia.co.jp/enterprise/articles/2611/21/news003.html"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/151900",
+    "title": "🔒 論文をAIに読ませて「弱点は？」などを聞いても細かいことばかりを言ってくる問題の改善策",
+    "score": 31,
+    "selectedAt": "2026-11-23T12:49:30.874Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "2c0f1fd9-52ee-42f6-b9ed-c6cd77951920",
+    "normalizedUrl": "https://ai-data-base.com/archives/151900"
   }
 ]
