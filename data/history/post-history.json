@@ -1681,5 +1681,15 @@
     "status": "failed",
     "id": "fec1db68-f3f5-40db-9a93-9bbc4339f54c",
     "normalizedUrl": "https://www.itmedia.co.jp/aiplus/article/2611/24/2000003424"
+  },
+  {
+    "url": "https://www.itmedia.co.jp/news/article/2611/25/2000003421/",
+    "title": "AIでドーピングしたコンサルの実力は　使わない人材との能力差、BCG約500人で検証　Nature系列誌",
+    "score": 39,
+    "selectedAt": "2026-11-25T04:59:16.357Z",
+    "slot": "noon",
+    "status": "failed",
+    "id": "10959902-a25f-4932-bf6f-f5a4e89096d4",
+    "normalizedUrl": "https://www.itmedia.co.jp/news/article/2611/25/2000003421"
   }
 ]
