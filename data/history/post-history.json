@@ -1691,5 +1691,15 @@
     "status": "failed",
     "id": "10959902-a25f-4932-bf6f-f5a4e89096d4",
     "normalizedUrl": "https://www.itmedia.co.jp/news/article/2611/25/2000003421"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/153222",
+    "title": "🔒 オープンウェイトLLMを活用して自サーバーの脆弱性テストを行うときのコツ",
+    "score": 30.4,
+    "selectedAt": "2026-11-25T12:58:53.821Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "f38c2036-a27a-4bc3-bbb9-b33a483c0f91",
+    "normalizedUrl": "https://ai-data-base.com/archives/153222"
   }
 ]
