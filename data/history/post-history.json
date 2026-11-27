@@ -1731,5 +1731,15 @@
     "status": "failed",
     "id": "6295a8c3-a249-4f92-a7ab-9b089730ba8b",
     "normalizedUrl": "https://ai-data-base.com/archives/153790"
+  },
+  {
+    "url": "https://ai-data-base.com/archives/153861",
+    "title": "🔒 コーディングAIを使うとき、読み取りからデプロイまで”どこまで許可するか”の決め方",
+    "score": 32.58,
+    "selectedAt": "2026-11-27T12:25:41.959Z",
+    "slot": "evening",
+    "status": "failed",
+    "id": "29beafb6-f44b-41b9-84be-3a7c534edf42",
+    "normalizedUrl": "https://ai-data-base.com/archives/153861"
   }
 ]
